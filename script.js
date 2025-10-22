@@ -458,9 +458,23 @@ elements.resetBtn.addEventListener('click', () => {
     elements.startBtn.disabled = false;
     elements.stopBtn.disabled = true;
 
-    // 状態をリセット
+    // 現在の質量を保存
+    const currentMassA = bodies.A.mass;
+    const currentMassB = bodies.B.mass;
+
+    // 位置と速度をリセット
     bodies.A = JSON.parse(JSON.stringify(initialState.A));
     bodies.B = JSON.parse(JSON.stringify(initialState.B));
+
+    // 質量を現在の値に戻す
+    bodies.A.mass = currentMassA;
+    bodies.B.mass = currentMassB;
+
+    // 半径を質量に応じて再計算
+    bodies.A.radius = Math.max(8, Math.min(30, 10 + Math.log10(bodies.A.mass) * 3));
+    bodies.B.radius = Math.max(8, Math.min(30, 10 + Math.log10(bodies.B.mass) * 3));
+
+    // 軌道をクリア
     bodies.A.trail = [];
     bodies.B.trail = [];
 
