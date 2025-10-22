@@ -1,0 +1,283 @@
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    background-color: #1a1a1a;
+    color: #e0e0e0;
+    overflow: hidden;
+}
+
+.container {
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+}
+
+header {
+    background-color: #252525;
+    padding: 15px 20px;
+    border-bottom: 2px solid #333;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.5);
+}
+
+header h1 {
+    font-size: 24px;
+    color: #4CAF50;
+}
+
+.main-content {
+    display: grid;
+    grid-template-columns: 280px 1fr 300px;
+    gap: 10px;
+    padding: 10px;
+    height: calc(100vh - 70px);
+}
+
+/* パラメータパネル */
+.parameters-panel {
+    background-color: #252525;
+    border-radius: 8px;
+    padding: 20px;
+    overflow-y: auto;
+    border: 1px solid #333;
+}
+
+.parameters-panel h2 {
+    font-size: 20px;
+    margin-bottom: 20px;
+    color: #4CAF50;
+    border-bottom: 2px solid #4CAF50;
+    padding-bottom: 10px;
+}
+
+.parameter-group {
+    margin-bottom: 25px;
+}
+
+.parameter-group h3 {
+    font-size: 16px;
+    margin-bottom: 12px;
+    color: #66BB6A;
+}
+
+.param-item {
+    display: flex;
+    justify-content: space-between;
+    padding: 8px 0;
+    border-bottom: 1px solid #333;
+}
+
+.param-label {
+    color: #999;
+    font-size: 14px;
+}
+
+.param-value {
+    color: #e0e0e0;
+    font-family: 'Courier New', monospace;
+    font-size: 14px;
+    font-weight: bold;
+}
+
+/* キャンバスパネル */
+.canvas-panel {
+    background-color: #1e1e1e;
+    border-radius: 8px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid #333;
+    position: relative;
+    overflow: hidden;
+}
+
+#simulation-canvas {
+    display: block;
+    background-color: #0a0a0a;
+    cursor: crosshair;
+    border-radius: 4px;
+}
+
+.instructions {
+    position: absolute;
+    top: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    background-color: rgba(76, 175, 80, 0.9);
+    color: white;
+    padding: 10px 20px;
+    border-radius: 5px;
+    font-size: 14px;
+    font-weight: bold;
+    pointer-events: none;
+    transition: opacity 0.3s;
+}
+
+.instructions.hidden {
+    opacity: 0;
+}
+
+/* コントロールパネル */
+.controls-panel {
+    background-color: #252525;
+    border-radius: 8px;
+    padding: 20px;
+    overflow-y: auto;
+    border: 1px solid #333;
+}
+
+.controls-panel h2 {
+    font-size: 20px;
+    margin-bottom: 20px;
+    color: #4CAF50;
+    border-bottom: 2px solid #4CAF50;
+    padding-bottom: 10px;
+}
+
+.control-group {
+    margin-bottom: 20px;
+}
+
+.control-group label {
+    display: block;
+    margin-bottom: 8px;
+    color: #999;
+    font-size: 14px;
+}
+
+.control-group input[type="range"] {
+    width: 100%;
+    height: 6px;
+    border-radius: 3px;
+    background: #333;
+    outline: none;
+    -webkit-appearance: none;
+}
+
+.control-group input[type="range"]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    background: #4CAF50;
+    cursor: pointer;
+    transition: background 0.3s;
+}
+
+.control-group input[type="range"]::-webkit-slider-thumb:hover {
+    background: #66BB6A;
+}
+
+.control-group input[type="range"]::-moz-range-thumb {
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    background: #4CAF50;
+    cursor: pointer;
+    border: none;
+}
+
+.control-group span {
+    display: inline-block;
+    margin-left: 10px;
+    color: #e0e0e0;
+    font-weight: bold;
+    font-family: 'Courier New', monospace;
+}
+
+.control-group input[type="checkbox"] {
+    margin-right: 8px;
+}
+
+.button-group {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin-bottom: 20px;
+}
+
+.btn {
+    padding: 12px;
+    border: none;
+    border-radius: 5px;
+    font-size: 16px;
+    font-weight: bold;
+    cursor: pointer;
+    transition: all 0.3s;
+}
+
+.btn-primary {
+    background-color: #4CAF50;
+    color: white;
+}
+
+.btn-primary:hover:not(:disabled) {
+    background-color: #66BB6A;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(76, 175, 80, 0.4);
+}
+
+.btn-secondary {
+    background-color: #555;
+    color: white;
+}
+
+.btn-secondary:hover:not(:disabled) {
+    background-color: #666;
+}
+
+.btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.btn:active:not(:disabled) {
+    transform: translateY(0);
+}
+
+/* スクロールバー */
+.parameters-panel::-webkit-scrollbar,
+.controls-panel::-webkit-scrollbar {
+    width: 8px;
+}
+
+.parameters-panel::-webkit-scrollbar-track,
+.controls-panel::-webkit-scrollbar-track {
+    background: #1a1a1a;
+}
+
+.parameters-panel::-webkit-scrollbar-thumb,
+.controls-panel::-webkit-scrollbar-thumb {
+    background: #4CAF50;
+    border-radius: 4px;
+}
+
+.parameters-panel::-webkit-scrollbar-thumb:hover,
+.controls-panel::-webkit-scrollbar-thumb:hover {
+    background: #66BB6A;
+}
+
+/* レスポンシブ対応 */
+@media (max-width: 1200px) {
+    .main-content {
+        grid-template-columns: 250px 1fr 250px;
+    }
+}
+
+@media (max-width: 900px) {
+    .main-content {
+        grid-template-columns: 1fr;
+        grid-template-rows: auto 1fr auto;
+    }
+
+    .parameters-panel,
+    .controls-panel {
+        max-height: 200px;
+    }
+}
