@@ -28,6 +28,7 @@ const elements = {
     followCM: document.getElementById('follow-cm'),
     showVelocity: document.getElementById('show-velocity'),
     showForce: document.getElementById('show-force'),
+    showAcceleration: document.getElementById('show-acceleration'),
     instructions: document.getElementById('instructions')
 };
 
@@ -45,8 +46,9 @@ let state = {
     showTrail: true,
     showGrid: true,
     followCM: false,
-    showVelocity: false,
-    showForce: false
+    showVelocity: true,
+    showForce: true,
+    showAcceleration: true
 };
 
 // 質量変換関数（スライダー値 → 実際の質量）
@@ -345,6 +347,29 @@ function drawForceVectors() {
     drawArrow(posB.x, posB.y, forceEndB.x, forceEndB.y, '#FF00FF', 'F', 'B');
 }
 
+// 加速度ベクトル表示
+function drawAccelerationVectors() {
+    if (!state.showAcceleration) return;
+
+    // 質点Aの加速度を計算
+    const accA = calculateAcceleration(bodies.A, bodies.B);
+    const posA = toCanvas(bodies.A.x, bodies.A.y);
+    const accEndA = toCanvas(
+        bodies.A.x + accA.ax * 50,
+        bodies.A.y + accA.ay * 50
+    );
+    drawArrow(posA.x, posA.y, accEndA.x, accEndA.y, '#FFA500', 'a', 'A');
+
+    // 質点Bの加速度を計算
+    const accB = calculateAcceleration(bodies.B, bodies.A);
+    const posB = toCanvas(bodies.B.x, bodies.B.y);
+    const accEndB = toCanvas(
+        bodies.B.x + accB.ax * 50,
+        bodies.B.y + accB.ay * 50
+    );
+    drawArrow(posB.x, posB.y, accEndB.x, accEndB.y, '#FFA500', 'a', 'B');
+}
+
 // 描画メインループ
 function draw() {
     // 重心の座標を計算
@@ -380,6 +405,7 @@ function draw() {
     // ベクトル表示
     drawVelocityVectors();
     drawForceVectors();
+    drawAccelerationVectors();
 }
 
 // 重力加速度計算
@@ -619,6 +645,10 @@ elements.showVelocity.addEventListener('change', (e) => {
 
 elements.showForce.addEventListener('change', (e) => {
     state.showForce = e.target.checked;
+});
+
+elements.showAcceleration.addEventListener('change', (e) => {
+    state.showAcceleration = e.target.checked;
 });
 
 // 初期化
