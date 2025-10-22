@@ -26,7 +26,7 @@ header {
 
 header h1 {
     font-size: 24px;
-    color: #4CAF50;
+    color: #2196F3;
 }
 
 .main-content {
@@ -49,8 +49,8 @@ header h1 {
 .parameters-panel h2 {
     font-size: 20px;
     margin-bottom: 20px;
-    color: #4CAF50;
-    border-bottom: 2px solid #4CAF50;
+    color: #2196F3;
+    border-bottom: 2px solid #2196F3;
     padding-bottom: 10px;
 }
 
@@ -61,7 +61,7 @@ header h1 {
 .parameter-group h3 {
     font-size: 16px;
     margin-bottom: 12px;
-    color: #66BB6A;
+    color: #42A5F5;
 }
 
 .param-item {
@@ -108,7 +108,7 @@ header h1 {
     top: 20px;
     left: 50%;
     transform: translateX(-50%);
-    background-color: rgba(76, 175, 80, 0.9);
+    background-color: rgba(33, 150, 243, 0.9);
     color: white;
     padding: 10px 20px;
     border-radius: 5px;
@@ -134,8 +134,8 @@ header h1 {
 .controls-panel h2 {
     font-size: 20px;
     margin-bottom: 20px;
-    color: #4CAF50;
-    border-bottom: 2px solid #4CAF50;
+    color: #2196F3;
+    border-bottom: 2px solid #2196F3;
     padding-bottom: 10px;
 }
 
@@ -165,20 +165,20 @@ header h1 {
     width: 18px;
     height: 18px;
     border-radius: 50%;
-    background: #4CAF50;
+    background: #2196F3;
     cursor: pointer;
     transition: background 0.3s;
 }
 
 .control-group input[type="range"]::-webkit-slider-thumb:hover {
-    background: #66BB6A;
+    background: #42A5F5;
 }
 
 .control-group input[type="range"]::-moz-range-thumb {
     width: 18px;
     height: 18px;
     border-radius: 50%;
-    background: #4CAF50;
+    background: #2196F3;
     cursor: pointer;
     border: none;
 }
@@ -213,14 +213,14 @@ header h1 {
 }
 
 .btn-primary {
-    background-color: #4CAF50;
+    background-color: #2196F3;
     color: white;
 }
 
 .btn-primary:hover:not(:disabled) {
-    background-color: #66BB6A;
+    background-color: #42A5F5;
     transform: translateY(-2px);
-    box-shadow: 0 4px 8px rgba(76, 175, 80, 0.4);
+    box-shadow: 0 4px 8px rgba(33, 150, 243, 0.4);
 }
 
 .btn-secondary {
@@ -254,13 +254,13 @@ header h1 {
 
 .parameters-panel::-webkit-scrollbar-thumb,
 .controls-panel::-webkit-scrollbar-thumb {
-    background: #4CAF50;
+    background: #2196F3;
     border-radius: 4px;
 }
 
 .parameters-panel::-webkit-scrollbar-thumb:hover,
 .controls-panel::-webkit-scrollbar-thumb:hover {
-    background: #66BB6A;
+    background: #42A5F5;
 }
 
 /* レスポンシブ対応 */
