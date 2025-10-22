@@ -49,7 +49,7 @@ let state = {
     followCM: false,
     showVelocity: true,
     showForce: true,
-    showAcceleration: true
+    showAcceleration: false
 };
 
 // 質量変換関数（スライダー値 → 実際の質量）
