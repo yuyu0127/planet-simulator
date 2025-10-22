@@ -239,7 +239,7 @@ function drawVelocityArrow(body, label) {
 }
 
 // ベクトル描画ヘルパー関数
-function drawArrow(fromX, fromY, toX, toY, color, label) {
+function drawArrow(fromX, fromY, toX, toY, color, mainLabel, subLabel) {
     const dx = toX - fromX;
     const dy = toY - fromY;
     const length = Math.sqrt(dx * dx + dy * dy);
@@ -271,12 +271,23 @@ function drawArrow(fromX, fromY, toX, toY, color, label) {
     ctx.closePath();
     ctx.fill();
 
-    // ラベル
-    if (label) {
+    // ラベル（下付き文字対応）
+    if (mainLabel) {
         ctx.fillStyle = color;
-        ctx.font = 'bold 12px Arial';
-        ctx.textAlign = 'center';
-        ctx.fillText(label, toX, toY - 15);
+
+        // メイン文字（イタリック）
+        ctx.font = 'italic bold 14px Georgia, serif';
+        ctx.textAlign = 'left';
+        const mainWidth = ctx.measureText(mainLabel).width;
+        const labelX = toX - mainWidth / 2 - 3;
+        const labelY = toY - 15;
+        ctx.fillText(mainLabel, labelX, labelY);
+
+        // 下付き文字
+        if (subLabel) {
+            ctx.font = 'italic bold 10px Georgia, serif';
+            ctx.fillText(subLabel, labelX + mainWidth, labelY + 3);
+        }
     }
 }
 
@@ -290,7 +301,7 @@ function drawVelocityVectors() {
         bodies.A.x + bodies.A.vx * 5,
         bodies.A.y + bodies.A.vy * 5
     );
-    drawArrow(posA.x, posA.y, velEndA.x, velEndA.y, '#00FF00', 'vA');
+    drawArrow(posA.x, posA.y, velEndA.x, velEndA.y, '#00FF00', 'v', 'A');
 
     // 質点Bの速度ベクトル
     const posB = toCanvas(bodies.B.x, bodies.B.y);
@@ -298,7 +309,7 @@ function drawVelocityVectors() {
         bodies.B.x + bodies.B.vx * 5,
         bodies.B.y + bodies.B.vy * 5
     );
-    drawArrow(posB.x, posB.y, velEndB.x, velEndB.y, '#00FF00', 'vB');
+    drawArrow(posB.x, posB.y, velEndB.x, velEndB.y, '#00FF00', 'v', 'B');
 }
 
 // 力ベクトル表示
@@ -322,7 +333,7 @@ function drawForceVectors() {
         bodies.A.x + (dx / dist) * force * forceScale,
         bodies.A.y + (dy / dist) * force * forceScale
     );
-    drawArrow(posA.x, posA.y, forceEndA.x, forceEndA.y, '#FF00FF', 'FA');
+    drawArrow(posA.x, posA.y, forceEndA.x, forceEndA.y, '#FF00FF', 'F', 'A');
 
     // 質点Bに働く力（反対方向）
     const posB = toCanvas(bodies.B.x, bodies.B.y);
@@ -331,7 +342,7 @@ function drawForceVectors() {
         bodies.B.x - (dx / dist) * forceB * forceScale,
         bodies.B.y - (dy / dist) * forceB * forceScale
     );
-    drawArrow(posB.x, posB.y, forceEndB.x, forceEndB.y, '#FF00FF', 'FB');
+    drawArrow(posB.x, posB.y, forceEndB.x, forceEndB.y, '#FF00FF', 'F', 'B');
 }
 
 // 描画メインループ

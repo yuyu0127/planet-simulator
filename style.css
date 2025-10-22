@@ -11,6 +11,19 @@ body {
     overflow: hidden;
 }
 
+/* 数式用の変数スタイル */
+var {
+    font-family: 'Georgia', 'Times New Roman', serif;
+    font-style: italic;
+    font-weight: normal;
+    color: inherit;
+}
+
+sub {
+    font-size: 0.75em;
+    vertical-align: sub;
+}
+
 .container {
     display: flex;
     flex-direction: column;
@@ -160,8 +173,8 @@ header h1 {
 }
 
 .control-group input[type="range"]::-webkit-slider-thumb {
-    -webkit-appearance: none;
     appearance: none;
+    -webkit-appearance: none;
     width: 18px;
     height: 18px;
     border-radius: 50%;
