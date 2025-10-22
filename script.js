@@ -26,6 +26,8 @@ const elements = {
     showTrail: document.getElementById('show-trail'),
     showGrid: document.getElementById('show-grid'),
     followCM: document.getElementById('follow-cm'),
+    showVelocity: document.getElementById('show-velocity'),
+    showForce: document.getElementById('show-force'),
     instructions: document.getElementById('instructions')
 };
 
@@ -42,7 +44,9 @@ let state = {
     dragStart: { x: 0, y: 0 },
     showTrail: true,
     showGrid: true,
-    followCM: false
+    followCM: false,
+    showVelocity: false,
+    showForce: false
 };
 
 // 質量変換関数（スライダー値 → 実際の質量）
@@ -234,6 +238,102 @@ function drawVelocityArrow(body, label) {
     ctx.fill();
 }
 
+// ベクトル描画ヘルパー関数
+function drawArrow(fromX, fromY, toX, toY, color, label) {
+    const dx = toX - fromX;
+    const dy = toY - fromY;
+    const length = Math.sqrt(dx * dx + dy * dy);
+
+    if (length < 3) return;
+
+    // 矢印の線
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(fromX, fromY);
+    ctx.lineTo(toX, toY);
+    ctx.stroke();
+
+    // 矢印の頭
+    const angle = Math.atan2(dy, dx);
+    const arrowSize = 10;
+    ctx.fillStyle = color;
+    ctx.beginPath();
+    ctx.moveTo(toX, toY);
+    ctx.lineTo(
+        toX - arrowSize * Math.cos(angle - Math.PI / 6),
+        toY - arrowSize * Math.sin(angle - Math.PI / 6)
+    );
+    ctx.lineTo(
+        toX - arrowSize * Math.cos(angle + Math.PI / 6),
+        toY - arrowSize * Math.sin(angle + Math.PI / 6)
+    );
+    ctx.closePath();
+    ctx.fill();
+
+    // ラベル
+    if (label) {
+        ctx.fillStyle = color;
+        ctx.font = 'bold 12px Arial';
+        ctx.textAlign = 'center';
+        ctx.fillText(label, toX, toY - 15);
+    }
+}
+
+// 速度ベクトル表示
+function drawVelocityVectors() {
+    if (!state.showVelocity) return;
+
+    // 質点Aの速度ベクトル
+    const posA = toCanvas(bodies.A.x, bodies.A.y);
+    const velEndA = toCanvas(
+        bodies.A.x + bodies.A.vx * 5,
+        bodies.A.y + bodies.A.vy * 5
+    );
+    drawArrow(posA.x, posA.y, velEndA.x, velEndA.y, '#00FF00', 'vA');
+
+    // 質点Bの速度ベクトル
+    const posB = toCanvas(bodies.B.x, bodies.B.y);
+    const velEndB = toCanvas(
+        bodies.B.x + bodies.B.vx * 5,
+        bodies.B.y + bodies.B.vy * 5
+    );
+    drawArrow(posB.x, posB.y, velEndB.x, velEndB.y, '#00FF00', 'vB');
+}
+
+// 力ベクトル表示
+function drawForceVectors() {
+    if (!state.showForce) return;
+
+    // AがBから受ける力を計算
+    const dx = bodies.B.x - bodies.A.x;
+    const dy = bodies.B.y - bodies.A.y;
+    const distSq = dx * dx + dy * dy;
+    const dist = Math.sqrt(distSq);
+
+    if (dist < 0.1) return;
+
+    const force = state.G * bodies.B.mass / distSq;
+    const forceScale = 50; // 表示用のスケール
+
+    // 質点Aに働く力
+    const posA = toCanvas(bodies.A.x, bodies.A.y);
+    const forceEndA = toCanvas(
+        bodies.A.x + (dx / dist) * force * forceScale,
+        bodies.A.y + (dy / dist) * force * forceScale
+    );
+    drawArrow(posA.x, posA.y, forceEndA.x, forceEndA.y, '#FF00FF', 'FA');
+
+    // 質点Bに働く力（反対方向）
+    const posB = toCanvas(bodies.B.x, bodies.B.y);
+    const forceB = state.G * bodies.A.mass / distSq;
+    const forceEndB = toCanvas(
+        bodies.B.x - (dx / dist) * forceB * forceScale,
+        bodies.B.y - (dy / dist) * forceB * forceScale
+    );
+    drawArrow(posB.x, posB.y, forceEndB.x, forceEndB.y, '#FF00FF', 'FB');
+}
+
 // 描画メインループ
 function draw() {
     // 重心の座標を計算
@@ -265,6 +365,10 @@ function draw() {
     ctx.beginPath();
     ctx.arc(cmPos.x, cmPos.y, 5, 0, Math.PI * 2);
     ctx.fill();
+
+    // ベクトル表示
+    drawVelocityVectors();
+    drawForceVectors();
 }
 
 // 重力加速度計算
@@ -496,6 +600,14 @@ elements.showGrid.addEventListener('change', (e) => {
 
 elements.followCM.addEventListener('change', (e) => {
     state.followCM = e.target.checked;
+});
+
+elements.showVelocity.addEventListener('change', (e) => {
+    state.showVelocity = e.target.checked;
+});
+
+elements.showForce.addEventListener('change', (e) => {
+    state.showForce = e.target.checked;
 });
 
 // 初期化
