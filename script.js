@@ -454,10 +454,6 @@ function updatePhysics() {
     if (state.showTrail) {
         bodies.A.trail.push({ x: bodies.A.x, y: bodies.A.y });
         bodies.B.trail.push({ x: bodies.B.x, y: bodies.B.y });
-
-        // 軌道の長さ制限
-        if (bodies.A.trail.length > 1000) bodies.A.trail.shift();
-        if (bodies.B.trail.length > 1000) bodies.B.trail.shift();
     }
 }
 
