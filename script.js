@@ -43,6 +43,7 @@ let state = {
     speedMultiplier: 1,
     dragging: null,
     dragStart: { x: 0, y: 0 },
+    currentMouse: { x: 0, y: 0 },
     showTrail: true,
     showGrid: true,
     followCM: false,
@@ -198,15 +199,12 @@ function drawBody(body, label) {
     ctx.fillText(label, pos.x, pos.y);
 }
 
-// 速度ベクトル描画
+// 速度ベクトル描画（ドラッグ中）
 function drawVelocityArrow(body, label) {
     if (state.dragging !== label) return;
 
     const pos = toCanvas(body.x, body.y);
-    const arrowEnd = toCanvas(
-        body.x + body.vx * 10,
-        body.y + body.vy * 10
-    );
+    const arrowEnd = toCanvas(state.currentMouse.x, state.currentMouse.y);
 
     const dx = arrowEnd.x - pos.x;
     const dy = arrowEnd.y - pos.y;
@@ -300,16 +298,16 @@ function drawVelocityVectors() {
     // 質点Aの速度ベクトル
     const posA = toCanvas(bodies.A.x, bodies.A.y);
     const velEndA = toCanvas(
-        bodies.A.x + bodies.A.vx * 5,
-        bodies.A.y + bodies.A.vy * 5
+        bodies.A.x + bodies.A.vx * 20,
+        bodies.A.y + bodies.A.vy * 20
     );
     drawArrow(posA.x, posA.y, velEndA.x, velEndA.y, '#00FF00', 'v', 'A');
 
     // 質点Bの速度ベクトル
     const posB = toCanvas(bodies.B.x, bodies.B.y);
     const velEndB = toCanvas(
-        bodies.B.x + bodies.B.vx * 5,
-        bodies.B.y + bodies.B.vy * 5
+        bodies.B.x + bodies.B.vx * 20,
+        bodies.B.y + bodies.B.vy * 20
     );
     drawArrow(posB.x, posB.y, velEndB.x, velEndB.y, '#00FF00', 'v', 'B');
 }
@@ -526,10 +524,12 @@ canvas.addEventListener('mousedown', (e) => {
 
     if (distA < bodies.A.radius) {
         state.dragging = 'A';
-        state.dragStart = { x: simPos.x, y: simPos.y };
+        state.dragStart = { x: bodies.A.x, y: bodies.A.y };
+        state.currentMouse = { x: bodies.A.x, y: bodies.A.y };
     } else if (distB < bodies.B.radius) {
         state.dragging = 'B';
-        state.dragStart = { x: simPos.x, y: simPos.y };
+        state.dragStart = { x: bodies.B.x, y: bodies.B.y };
+        state.currentMouse = { x: bodies.B.x, y: bodies.B.y };
     }
 });
 
@@ -541,9 +541,12 @@ canvas.addEventListener('mousemove', (e) => {
     const mouseY = e.clientY - rect.top;
     const simPos = toSimulation(mouseX, mouseY);
 
+    state.currentMouse = { x: simPos.x, y: simPos.y };
+
     const body = bodies[state.dragging];
-    body.vx = (simPos.x - state.dragStart.x) * 0.1;
-    body.vy = (simPos.y - state.dragStart.y) * 0.1;
+    // ドラッグした矢印の長さをそのまま速度に（スケール調整）
+    body.vx = (simPos.x - state.dragStart.x) * 0.05;
+    body.vy = (simPos.y - state.dragStart.y) * 0.05;
 
     updateParameters();
 });
