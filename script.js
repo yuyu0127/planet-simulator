@@ -25,6 +25,7 @@ const elements = {
     resetBtn: document.getElementById('reset-btn'),
     showTrail: document.getElementById('show-trail'),
     showGrid: document.getElementById('show-grid'),
+    followCM: document.getElementById('follow-cm'),
     instructions: document.getElementById('instructions')
 };
 
@@ -40,7 +41,8 @@ let state = {
     dragging: null,
     dragStart: { x: 0, y: 0 },
     showTrail: true,
-    showGrid: true
+    showGrid: true,
+    followCM: false
 };
 
 // 質量変換関数（スライダー値 → 実際の質量）
@@ -234,6 +236,20 @@ function drawVelocityArrow(body, label) {
 
 // 描画メインループ
 function draw() {
+    // 重心の座標を計算
+    const cmX = (bodies.A.mass * bodies.A.x + bodies.B.mass * bodies.B.x) / (bodies.A.mass + bodies.B.mass);
+    const cmY = (bodies.A.mass * bodies.A.y + bodies.B.mass * bodies.B.y) / (bodies.A.mass + bodies.B.mass);
+
+    // 重心追従モードの場合、オフセットを調整
+    if (state.followCM) {
+        state.offsetX = canvas.width / 2 - cmX;
+        state.offsetY = canvas.height / 2 + cmY;
+    } else {
+        // 通常モードでは中心に固定
+        state.offsetX = canvas.width / 2;
+        state.offsetY = canvas.height / 2;
+    }
+
     ctx.fillStyle = '#0a0a0a';
     ctx.fillRect(0, 0, canvas.width, canvas.height);
 
@@ -244,8 +260,6 @@ function draw() {
     drawVelocityArrow(bodies.B, 'B');
 
     // 重心を描画
-    const cmX = (bodies.A.mass * bodies.A.x + bodies.B.mass * bodies.B.x) / (bodies.A.mass + bodies.B.mass);
-    const cmY = (bodies.A.mass * bodies.A.y + bodies.B.mass * bodies.B.y) / (bodies.A.mass + bodies.B.mass);
     const cmPos = toCanvas(cmX, cmY);
     ctx.fillStyle = '#00BCD4';
     ctx.beginPath();
@@ -464,6 +478,10 @@ elements.showTrail.addEventListener('change', (e) => {
 
 elements.showGrid.addEventListener('change', (e) => {
     state.showGrid = e.target.checked;
+});
+
+elements.followCM.addEventListener('change', (e) => {
+    state.followCM = e.target.checked;
 });
 
 // 初期化
