@@ -390,8 +390,6 @@ function draw() {
     drawGrid();
     drawBody(bodies.A, 'A');
     drawBody(bodies.B, 'B');
-    drawVelocityArrow(bodies.A, 'A');
-    drawVelocityArrow(bodies.B, 'B');
 
     // 重心を描画
     const cmPos = toCanvas(cmX, cmY);
