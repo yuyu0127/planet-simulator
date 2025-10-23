@@ -505,12 +505,12 @@ function animate() {
     requestAnimationFrame(animate);
 }
 
-// マウスイベント
-canvas.addEventListener('mousedown', (e) => {
+// 共通のドラッグ開始処理
+function handleDragStart(clientX, clientY) {
     const rect = canvas.getBoundingClientRect();
-    const mouseX = e.clientX - rect.left;
-    const mouseY = e.clientY - rect.top;
-    const simPos = toSimulation(mouseX, mouseY);
+    const canvasX = clientX - rect.left;
+    const canvasY = clientY - rect.top;
+    const simPos = toSimulation(canvasX, canvasY);
 
     // どちらの質点をクリックしたか判定
     const distA = Math.sqrt((simPos.x - bodies.A.x) ** 2 + (simPos.y - bodies.A.y) ** 2);
@@ -525,15 +525,16 @@ canvas.addEventListener('mousedown', (e) => {
         state.dragStart = { x: bodies.B.x, y: bodies.B.y };
         state.currentMouse = { x: bodies.B.x, y: bodies.B.y };
     }
-});
+}
 
-canvas.addEventListener('mousemove', (e) => {
+// 共通のドラッグ移動処理
+function handleDragMove(clientX, clientY) {
     if (!state.dragging) return;
 
     const rect = canvas.getBoundingClientRect();
-    const mouseX = e.clientX - rect.left;
-    const mouseY = e.clientY - rect.top;
-    const simPos = toSimulation(mouseX, mouseY);
+    const canvasX = clientX - rect.left;
+    const canvasY = clientY - rect.top;
+    const simPos = toSimulation(canvasX, canvasY);
 
     state.currentMouse = { x: simPos.x, y: simPos.y };
 
@@ -543,17 +544,56 @@ canvas.addEventListener('mousemove', (e) => {
     body.vy = (simPos.y - state.dragStart.y) * 0.05;
 
     updateParameters();
-});
+}
 
-canvas.addEventListener('mouseup', () => {
+// 共通のドラッグ終了処理
+function handleDragEnd() {
     if (state.dragging) {
         elements.instructions.classList.add('hidden');
     }
     state.dragging = null;
+}
+
+// マウスイベント
+canvas.addEventListener('mousedown', (e) => {
+    handleDragStart(e.clientX, e.clientY);
+});
+
+canvas.addEventListener('mousemove', (e) => {
+    handleDragMove(e.clientX, e.clientY);
+});
+
+canvas.addEventListener('mouseup', () => {
+    handleDragEnd();
 });
 
 canvas.addEventListener('mouseleave', () => {
-    state.dragging = null;
+    handleDragEnd();
+});
+
+// タッチイベント
+canvas.addEventListener('touchstart', (e) => {
+    e.preventDefault(); // スクロールを防止
+    if (e.touches.length > 0) {
+        handleDragStart(e.touches[0].clientX, e.touches[0].clientY);
+    }
+});
+
+canvas.addEventListener('touchmove', (e) => {
+    e.preventDefault(); // スクロールを防止
+    if (e.touches.length > 0) {
+        handleDragMove(e.touches[0].clientX, e.touches[0].clientY);
+    }
+});
+
+canvas.addEventListener('touchend', (e) => {
+    e.preventDefault();
+    handleDragEnd();
+});
+
+canvas.addEventListener('touchcancel', (e) => {
+    e.preventDefault();
+    handleDragEnd();
 });
 
 // UI イベント
