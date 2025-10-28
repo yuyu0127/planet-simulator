@@ -38,7 +38,8 @@ let state = {
     offsetX: 0,
     offsetY: 0,
     G: 1, // 重力定数（調整済み）
-    dt: 0.016, // タイムステップ
+    dt: 0.01, // タイムステップ（0.016 → 0.01でより安定）
+    softening: 0.01, // 軟化パラメータ（近接時の計算安定化）
     speedMultiplier: 1,
     dragging: null,
     dragStart: { x: 0, y: 0 },
@@ -231,18 +232,17 @@ function drawForceVectors() {
     if (!state.showForce) return;
     if (!bodies.A.active || !bodies.B.active) return;
 
-    // AがBから受ける力を計算
+    // AがBから受ける力を計算（軟化パラメータ適用）
     const dx = bodies.B.x - bodies.A.x;
     const dy = bodies.B.y - bodies.A.y;
     const distSq = dx * dx + dy * dy;
-    const dist = Math.sqrt(distSq);
-
-    if (dist < 0.1) return;
+    const softenedDistSq = distSq + state.softening * state.softening;
+    const dist = Math.sqrt(softenedDistSq);
 
     const forceScale = 1; // 表示用のスケール（50 / 50 = 1）
 
     // 惑星Aに働く力
-    const forceA = state.G * bodies.B.mass / distSq;
+    const forceA = state.G * bodies.B.mass / softenedDistSq;
     const posA = toCanvas(bodies.A.x, bodies.A.y);
     const forceEndA = toCanvas(
         bodies.A.x + (dx / dist) * forceA * forceScale,
@@ -251,7 +251,7 @@ function drawForceVectors() {
     drawArrow(posA.x, posA.y, forceEndA.x, forceEndA.y, '#FF00FF', 'F', 'A');
 
     // 惑星Bに働く力（反対方向）
-    const forceB = state.G * bodies.A.mass / distSq;
+    const forceB = state.G * bodies.A.mass / softenedDistSq;
     const posB = toCanvas(bodies.B.x, bodies.B.y);
     const forceEndB = toCanvas(
         bodies.B.x - (dx / dist) * forceB * forceScale,
@@ -431,16 +431,18 @@ function draw() {
     drawExplosion();
 }
 
-// 重力加速度計算
+// 重力加速度計算（軟化パラメータ適用）
 function calculateAcceleration(body1, body2) {
     const dx = body2.x - body1.x;
     const dy = body2.y - body1.y;
     const distSq = dx * dx + dy * dy;
-    const dist = Math.sqrt(distSq);
 
-    if (dist < 0.1) return { ax: 0, ay: 0 };
+    // 軟化パラメータを追加（近接時の発散を防ぐ）
+    const softenedDistSq = distSq + state.softening * state.softening;
+    const dist = Math.sqrt(softenedDistSq);
 
-    const force = state.G * body2.mass / distSq;
+    // 軟化距離を使った力の計算
+    const force = state.G * body2.mass / softenedDistSq;
     const ax = force * dx / dist;
     const ay = force * dy / dist;
 
