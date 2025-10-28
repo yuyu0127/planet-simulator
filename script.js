@@ -41,7 +41,7 @@ let state = {
     offsetX: 0,
     offsetY: 0,
     G: 1, // 重力定数（調整済み）
-    dt: 0.01, // タイムステップ（0.016 → 0.01でより安定）
+    dt: 0.005, // タイムステップ
     softening: 0.01, // 軟化パラメータ（近接時の計算安定化）
     speedMultiplier: 1,
     dragging: null,
@@ -649,18 +649,16 @@ function handleDragEnd() {
     if (state.dragging) {
         const body = bodies[state.dragging];
 
-        // ドラッグした方向と逆向きに速度を設定（スケール: 0.5 = 0.05 * 10）
-        body.vx = -(state.currentMouse.x - state.dragStart.x) * 0.5;
-        body.vy = -(state.currentMouse.y - state.dragStart.y) * 0.5;
+        // ドラッグした方向と逆向きに速度を直接設定
+        body.vx = -(state.currentMouse.x - state.dragStart.x);
+        body.vy = -(state.currentMouse.y - state.dragStart.y);
 
         updateParameters();
 
-        // シミュレーションを再開（一時停止していた場合）
-        if (state.wasRunning) {
-            state.running = true;
-            elements.startBtn.disabled = true;
-            elements.stopBtn.disabled = false;
-        }
+        // シミュレーションを自動開始（初回でも再生）
+        state.running = true;
+        elements.startBtn.disabled = true;
+        elements.stopBtn.disabled = false;
 
         elements.instructions.classList.add('hidden');
     }
