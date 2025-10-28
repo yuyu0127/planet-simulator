@@ -41,7 +41,7 @@ let state = {
     scale: 50, // 座標系のスケール係数（シミュレーション座標 × 50 = キャンバス座標）
     offsetX: 0,
     offsetY: 0,
-    G: 100, // 重力定数（調整済み）
+    G: 1, // 重力定数（調整済み）
     dt: 0.016, // タイムステップ
     speedMultiplier: 1,
     dragging: null,
