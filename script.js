@@ -239,7 +239,7 @@ function drawForceVectors() {
     const softenedDistSq = distSq + state.softening * state.softening;
     const dist = Math.sqrt(softenedDistSq);
 
-    const forceScale = 1; // 表示用のスケール（50 / 50 = 1）
+    const forceScale = 0.2; // 表示用のスケール
 
     // 惑星Aに働く力
     const forceA = state.G * bodies.B.mass / softenedDistSq;
