@@ -14,9 +14,13 @@ const elements = {
     period: document.getElementById('period'),
     massA: document.getElementById('mass-a'),
     massB: document.getElementById('mass-b'),
+    radiusA: document.getElementById('radius-a'),
+    radiusB: document.getElementById('radius-b'),
     speed: document.getElementById('speed'),
     massAValue: document.getElementById('mass-a-value'),
     massBValue: document.getElementById('mass-b-value'),
+    radiusAValue: document.getElementById('radius-a-value'),
+    radiusBValue: document.getElementById('radius-b-value'),
     massADisplay: document.getElementById('mass-a-display'),
     massBDisplay: document.getElementById('mass-b-display'),
     speedValue: document.getElementById('speed-value'),
@@ -49,28 +53,18 @@ let state = {
 };
 
 // 質量変換関数（スライダー値 → 実際の質量）
-// 指数スケール: 1 〜 10000
+// 線形スケール: 1 〜 100
 function sliderToMass(sliderValue) {
-    // sliderValue: 0 〜 100
-    // 0 → 10^0 = 1
-    // 25 → 10^1 = 10
-    // 50 → 10^2 = 100
-    // 75 → 10^3 = 1000
-    // 100 → 10^4 = 10000
-    return Math.pow(10, sliderValue / 25);
+    // sliderValue: 1 〜 100 → mass: 1 〜 100
+    return sliderValue;
 }
 
 // 惑星データを初期化する関数
-function initializeBodies(massA, massB) {
-    const totalMass = massA + massB;
+function initializeBodies(massA, massB, radiusA, radiusB) {
     // 惑星Bを原点から150の位置に配置
     const xB = 150;
     // 重心が原点になるように惑星Aの位置を計算
     const xA = -massB * xB / massA;
-
-    // 半径の計算（質量に応じて対数スケール）
-    const radiusA = Math.max(8, Math.min(30, 10 + Math.log10(massA) * 5));
-    const radiusB = Math.max(8, Math.min(30, 10 + Math.log10(massB) * 5));
 
     return {
         A: {
@@ -98,8 +92,8 @@ function initializeBodies(massA, massB) {
     };
 }
 
-// 惑星データ（初期質量: A=100, B=100）
-let bodies = initializeBodies(100, 100);
+// 惑星データ（初期質量: A=50, B=50, 初期半径: A=15, B=15）
+let bodies = initializeBodies(50, 50, 15, 15);
 
 // 爆発エフェクトの状態
 let explosion = {
@@ -488,8 +482,8 @@ function updateParameters() {
     const vA = Math.sqrt(bodies.A.vx ** 2 + bodies.A.vy ** 2);
     const vB = Math.sqrt(bodies.B.vx ** 2 + bodies.B.vy ** 2);
 
-    elements.massADisplay.textContent = bodies.A.mass.toFixed(2);
-    elements.massBDisplay.textContent = bodies.B.mass.toFixed(2);
+    elements.massADisplay.textContent = bodies.A.mass.toFixed(0);
+    elements.massBDisplay.textContent = bodies.B.mass.toFixed(0);
     elements.posA.textContent = `(${bodies.A.x.toFixed(2)}, ${bodies.A.y.toFixed(2)})`;
     elements.posB.textContent = `(${bodies.B.x.toFixed(2)}, ${bodies.B.y.toFixed(2)})`;
     elements.velA.textContent = vA.toFixed(2);
@@ -625,7 +619,7 @@ elements.massA.addEventListener('input', (e) => {
         const currentVxB = bodies.B.vx;
         const currentVyB = bodies.B.vy;
 
-        bodies = initializeBodies(newMassA, bodies.B.mass);
+        bodies = initializeBodies(newMassA, bodies.B.mass, bodies.A.radius, bodies.B.radius);
 
         // 速度は保持
         bodies.A.vx = currentVxA;
@@ -635,10 +629,9 @@ elements.massA.addEventListener('input', (e) => {
     } else {
         // シミュレーション実行中は質量のみ変更（位置は物理演算で補正される）
         bodies.A.mass = newMassA;
-        bodies.A.radius = Math.max(8, Math.min(30, 10 + Math.log10(newMassA) * 5));
     }
 
-    elements.massAValue.textContent = newMassA.toFixed(2);
+    elements.massAValue.textContent = newMassA.toFixed(0);
     updateParameters();
 });
 
@@ -653,7 +646,7 @@ elements.massB.addEventListener('input', (e) => {
         const currentVxB = bodies.B.vx;
         const currentVyB = bodies.B.vy;
 
-        bodies = initializeBodies(bodies.A.mass, newMassB);
+        bodies = initializeBodies(bodies.A.mass, newMassB, bodies.A.radius, bodies.B.radius);
 
         // 速度は保持
         bodies.A.vx = currentVxA;
@@ -663,11 +656,22 @@ elements.massB.addEventListener('input', (e) => {
     } else {
         // シミュレーション実行中は質量のみ変更（位置は物理演算で補正される）
         bodies.B.mass = newMassB;
-        bodies.B.radius = Math.max(8, Math.min(30, 10 + Math.log10(newMassB) * 5));
     }
 
-    elements.massBValue.textContent = newMassB.toFixed(2);
+    elements.massBValue.textContent = newMassB.toFixed(0);
     updateParameters();
+});
+
+elements.radiusA.addEventListener('input', (e) => {
+    const newRadiusA = parseFloat(e.target.value);
+    bodies.A.radius = newRadiusA;
+    elements.radiusAValue.textContent = newRadiusA.toFixed(0);
+});
+
+elements.radiusB.addEventListener('input', (e) => {
+    const newRadiusB = parseFloat(e.target.value);
+    bodies.B.radius = newRadiusB;
+    elements.radiusBValue.textContent = newRadiusB.toFixed(0);
 });
 
 elements.speed.addEventListener('input', (e) => {
@@ -693,12 +697,14 @@ elements.resetBtn.addEventListener('click', () => {
     elements.startBtn.disabled = false;
     elements.stopBtn.disabled = true;
 
-    // 現在の質量を保存
+    // 現在の質量と半径を保存
     const currentMassA = bodies.A.mass;
     const currentMassB = bodies.B.mass;
+    const currentRadiusA = bodies.A.radius;
+    const currentRadiusB = bodies.B.radius;
 
-    // 現在の質量で重心原点の初期状態を再生成
-    bodies = initializeBodies(currentMassA, currentMassB);
+    // 現在の質量と半径で重心原点の初期状態を再生成
+    bodies = initializeBodies(currentMassA, currentMassB, currentRadiusA, currentRadiusB);
 
     // 爆発エフェクトをリセット
     explosion.active = false;

@@ -20,7 +20,7 @@
                     <h3>惑星 A</h3>
                     <div class="param-item">
                         <span class="param-label">質量 <var>m</var><sub>A</sub>:</span>
-                        <span id="mass-a-display" class="param-value">100.00</span>
+                        <span id="mass-a-display" class="param-value">50</span>
                     </div>
                     <div class="param-item">
                         <span class="param-label">座標:</span>
@@ -36,7 +36,7 @@
                     <h3>惑星 B</h3>
                     <div class="param-item">
                         <span class="param-label">質量 <var>m</var><sub>B</sub>:</span>
-                        <span id="mass-b-display" class="param-value">100.00</span>
+                        <span id="mass-b-display" class="param-value">50</span>
                     </div>
                     <div class="param-item">
                         <span class="param-label">座標:</span>
@@ -83,14 +83,26 @@
 
                 <div class="control-group">
                     <label for="mass-a">質量 <var>m</var><sub>A</sub></label>
-                    <input type="range" id="mass-a" min="0" max="100" value="50" step="1">
-                    <span id="mass-a-value">100</span>
+                    <input type="range" id="mass-a" min="1" max="100" value="50" step="1">
+                    <span id="mass-a-value">50</span>
+                </div>
+
+                <div class="control-group">
+                    <label for="radius-a">半径 <var>r</var><sub>A</sub></label>
+                    <input type="range" id="radius-a" min="5" max="50" value="15" step="1">
+                    <span id="radius-a-value">15</span>
                 </div>
 
                 <div class="control-group">
                     <label for="mass-b">質量 <var>m</var><sub>B</sub></label>
-                    <input type="range" id="mass-b" min="0" max="100" value="50" step="1">
-                    <span id="mass-b-value">100</span>
+                    <input type="range" id="mass-b" min="1" max="100" value="50" step="1">
+                    <span id="mass-b-value">50</span>
+                </div>
+
+                <div class="control-group">
+                    <label for="radius-b">半径 <var>r</var><sub>B</sub></label>
+                    <input type="range" id="radius-b" min="5" max="50" value="15" step="1">
+                    <span id="radius-b-value">15</span>
                 </div>
 
                 <div class="control-group">
