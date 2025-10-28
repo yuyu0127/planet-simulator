@@ -27,7 +27,10 @@ const elements = {
     showGrid: document.getElementById('show-grid'),
     showForce: document.getElementById('show-force'),
     enableCollision: document.getElementById('enable-collision'),
-    instructions: document.getElementById('instructions')
+    instructions: document.getElementById('instructions'),
+    zoomIn: document.getElementById('zoom-in'),
+    zoomOut: document.getElementById('zoom-out'),
+    zoomReset: document.getElementById('zoom-reset')
 };
 
 // シミュレーション状態
@@ -58,10 +61,12 @@ function sliderToMass(sliderValue) {
 }
 
 // 質量から半径を計算（三乗根）
+// シミュレーション座標での半径を返す
 function calculateRadius(mass) {
     // radius = k * mass^(1/3)
     // k = 4 とすると、mass=1で4、mass=8で8、mass=27で12、mass=100で約18.5
-    return 4 * Math.pow(mass, 1/3);
+    // これをシミュレーション座標に変換（初期スケール50で割る）
+    return 4 * Math.pow(mass, 1/3) / 50;
 }
 
 // 惑星データを初期化する関数
@@ -208,10 +213,10 @@ function drawBody(body, label) {
         ctx.globalAlpha = 1;
     }
 
-    // 惑星本体
+    // 惑星本体（半径をスケールしてピクセル単位に変換）
     ctx.fillStyle = body.color;
     ctx.beginPath();
-    ctx.arc(pos.x, pos.y, body.radius, 0, Math.PI * 2);
+    ctx.arc(pos.x, pos.y, body.radius * state.scale, 0, Math.PI * 2);
     ctx.fill();
 
     // 縁取り
@@ -498,9 +503,9 @@ function updatePhysics() {
         const dy = bodies.B.y - bodies.A.y;
         const distance = Math.sqrt(dx * dx + dy * dy);
 
-        // 半径をシミュレーション座標系に変換（ピクセル → シミュレーション座標）
-        const radiusA = bodies.A.radius / state.scale;
-        const radiusB = bodies.B.radius / state.scale;
+        // 半径はすでにシミュレーション座標系で保持されている
+        const radiusA = bodies.A.radius;
+        const radiusB = bodies.B.radius;
 
         if (distance < radiusA + radiusB) {
             // 衝突発生！
@@ -589,9 +594,9 @@ function handleDragStart(clientX, clientY) {
     const distA = Math.sqrt((simPos.x - bodies.A.x) ** 2 + (simPos.y - bodies.A.y) ** 2);
     const distB = Math.sqrt((simPos.x - bodies.B.x) ** 2 + (simPos.y - bodies.B.y) ** 2);
 
-    // 半径はピクセル単位なので、シミュレーション座標に変換して比較
-    const radiusA = bodies.A.radius / state.scale;
-    const radiusB = bodies.B.radius / state.scale;
+    // 半径はすでにシミュレーション座標系で保持されている
+    const radiusA = bodies.A.radius;
+    const radiusB = bodies.B.radius;
 
     if (distA < radiusA) {
         state.dragging = 'A';
@@ -817,6 +822,22 @@ elements.showForce.addEventListener('change', (e) => {
 
 elements.enableCollision.addEventListener('change', (e) => {
     state.enableCollision = e.target.checked;
+});
+
+// ズームコントロール
+elements.zoomIn.addEventListener('click', () => {
+    // 拡大（スケールを増やす）
+    state.scale = Math.min(state.scale * 1.2, 200);
+});
+
+elements.zoomOut.addEventListener('click', () => {
+    // 縮小（スケールを減らす）
+    state.scale = Math.max(state.scale / 1.2, 10);
+});
+
+elements.zoomReset.addEventListener('click', () => {
+    // リセット（初期値50に戻す）
+    state.scale = 50;
 });
 
 // 初期化
