@@ -635,9 +635,9 @@ function handleDragEnd() {
     if (state.dragging) {
         const body = bodies[state.dragging];
 
-        // ドラッグした方向と逆向きに速度を設定
-        body.vx = -(state.currentMouse.x - state.dragStart.x) * 0.05;
-        body.vy = -(state.currentMouse.y - state.dragStart.y) * 0.05;
+        // ドラッグした方向と逆向きに速度を設定（スケール: 0.5 = 0.05 * 10）
+        body.vx = -(state.currentMouse.x - state.dragStart.x) * 0.5;
+        body.vy = -(state.currentMouse.y - state.dragStart.y) * 0.5;
 
         updateParameters();
 
