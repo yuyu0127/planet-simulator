@@ -57,31 +57,42 @@ function sliderToMassB(sliderValue) {
     return sliderValue + 1;
 }
 
-// 惑星データ
-let bodies = {
-    A: {
-        mass: 3000, // sliderValue=2 → 1000 * (2 + 1) = 3000
-        x: 0,
-        y: 0,
-        vx: 0,
-        vy: 0,
-        radius: 25, // 大きな質量に対応した半径
-        color: '#FF5722',
-        trail: [],
-        active: true
-    },
-    B: {
-        mass: 3, // sliderValue=2 → 2 + 1 = 3
-        x: 150,
-        y: 0,
-        vx: 0,
-        vy: 0,
-        radius: 10,
-        color: '#2196F3',
-        trail: [],
-        active: true
-    }
-};
+// 惑星データを初期化する関数
+function initializeBodies(massA, massB) {
+    const totalMass = massA + massB;
+    // 惑星Bを原点から150の位置に配置
+    const xB = 150;
+    // 重心が原点になるように惑星Aの位置を計算
+    const xA = -massB * xB / massA;
+
+    return {
+        A: {
+            mass: massA,
+            x: xA,
+            y: 0,
+            vx: 0,
+            vy: 0,
+            radius: 15 + (massA / 1000) * 4,
+            color: '#FF5722',
+            trail: [],
+            active: true
+        },
+        B: {
+            mass: massB,
+            x: xB,
+            y: 0,
+            vx: 0,
+            vy: 0,
+            radius: 7 + massB,
+            color: '#2196F3',
+            trail: [],
+            active: true
+        }
+    };
+}
+
+// 惑星データ（初期質量: A=3000, B=3）
+let bodies = initializeBodies(3000, 3);
 
 // 爆発エフェクトの状態
 let explosion = {
@@ -92,8 +103,7 @@ let explosion = {
     duration: 1000 // 1秒間表示
 };
 
-// 初期位置を保存
-const initialState = JSON.parse(JSON.stringify(bodies));
+// 初期状態は動的に生成するため保存不要（質量に応じて変わる）
 
 // キャンバスサイズ調整
 function resizeCanvas() {
@@ -255,15 +265,9 @@ function drawExplosion() {
 
 // 描画メインループ
 function draw() {
-    // 重心の座標を計算（両方の惑星がアクティブな場合のみ）
-    if (bodies.A.active && bodies.B.active) {
-        const cmX = (bodies.A.mass * bodies.A.x + bodies.B.mass * bodies.B.x) / (bodies.A.mass + bodies.B.mass);
-        const cmY = (bodies.A.mass * bodies.A.y + bodies.B.mass * bodies.B.y) / (bodies.A.mass + bodies.B.mass);
-
-        // カメラを重心に自動追従
-        state.offsetX = canvas.width / 2 - cmX;
-        state.offsetY = canvas.height / 2 + cmY;
-    }
+    // カメラは常にcanvasの中心（重心座標系の原点）
+    state.offsetX = canvas.width / 2;
+    state.offsetY = canvas.height / 2;
 
     ctx.fillStyle = '#0a0a0a';
     ctx.fillRect(0, 0, canvas.width, canvas.height);
@@ -272,11 +276,9 @@ function draw() {
     drawBody(bodies.A, 'A');
     drawBody(bodies.B, 'B');
 
-    // 重心を描画（両方の惑星がアクティブな場合のみ）
+    // 重心を描画（常に原点 = canvas中心）
     if (bodies.A.active && bodies.B.active) {
-        const cmX = (bodies.A.mass * bodies.A.x + bodies.B.mass * bodies.B.x) / (bodies.A.mass + bodies.B.mass);
-        const cmY = (bodies.A.mass * bodies.A.y + bodies.B.mass * bodies.B.y) / (bodies.A.mass + bodies.B.mass);
-        const cmPos = toCanvas(cmX, cmY);
+        const cmPos = toCanvas(0, 0);
         ctx.fillStyle = '#00BCD4';
         ctx.beginPath();
         ctx.arc(cmPos.x, cmPos.y, 5, 0, Math.PI * 2);
@@ -336,6 +338,16 @@ function updatePhysics() {
     bodies.B.vx += accB2.ax * dt / 2;
     bodies.B.vy += accB2.ay * dt / 2;
 
+    // 重心を計算
+    const cmX = (bodies.A.mass * bodies.A.x + bodies.B.mass * bodies.B.x) / (bodies.A.mass + bodies.B.mass);
+    const cmY = (bodies.A.mass * bodies.A.y + bodies.B.mass * bodies.B.y) / (bodies.A.mass + bodies.B.mass);
+
+    // 重心を原点とする座標系に変換
+    bodies.A.x -= cmX;
+    bodies.A.y -= cmY;
+    bodies.B.x -= cmX;
+    bodies.B.y -= cmY;
+
     // 衝突判定
     const dx = bodies.B.x - bodies.A.x;
     const dy = bodies.B.y - bodies.A.y;
@@ -361,7 +373,7 @@ function updatePhysics() {
         elements.stopBtn.disabled = true;
     }
 
-    // 軌道記録
+    // 軌道記録（重心座標系で記録）
     if (state.showTrail) {
         bodies.A.trail.push({ x: bodies.A.x, y: bodies.A.y });
         bodies.B.trail.push({ x: bodies.B.x, y: bodies.B.y });
@@ -505,19 +517,57 @@ canvas.addEventListener('touchcancel', (e) => {
 // UI イベント
 elements.massA.addEventListener('input', (e) => {
     const sliderValue = parseFloat(e.target.value);
-    bodies.A.mass = sliderToMassA(sliderValue);
+    const newMassA = sliderToMassA(sliderValue);
+
+    // 質量変更時は重心を維持するために位置を再計算
+    if (!state.running) {
+        const currentVxA = bodies.A.vx;
+        const currentVyA = bodies.A.vy;
+        const currentVxB = bodies.B.vx;
+        const currentVyB = bodies.B.vy;
+
+        bodies = initializeBodies(newMassA, bodies.B.mass);
+
+        // 速度は保持
+        bodies.A.vx = currentVxA;
+        bodies.A.vy = currentVyA;
+        bodies.B.vx = currentVxB;
+        bodies.B.vy = currentVyB;
+    } else {
+        // シミュレーション実行中は質量のみ変更（位置は物理演算で補正される）
+        bodies.A.mass = newMassA;
+        bodies.A.radius = 15 + (newMassA / 1000) * 4;
+    }
+
     elements.massAValue.textContent = bodies.A.mass.toFixed(0);
-    // 半径は質量に応じて設定（1000→20, 5000→35程度）
-    bodies.A.radius = 15 + (bodies.A.mass / 1000) * 4;
     updateParameters();
 });
 
 elements.massB.addEventListener('input', (e) => {
     const sliderValue = parseFloat(e.target.value);
-    bodies.B.mass = sliderToMassB(sliderValue);
+    const newMassB = sliderToMassB(sliderValue);
+
+    // 質量変更時は重心を維持するために位置を再計算
+    if (!state.running) {
+        const currentVxA = bodies.A.vx;
+        const currentVyA = bodies.A.vy;
+        const currentVxB = bodies.B.vx;
+        const currentVyB = bodies.B.vy;
+
+        bodies = initializeBodies(bodies.A.mass, newMassB);
+
+        // 速度は保持
+        bodies.A.vx = currentVxA;
+        bodies.A.vy = currentVyA;
+        bodies.B.vx = currentVxB;
+        bodies.B.vy = currentVyB;
+    } else {
+        // シミュレーション実行中は質量のみ変更（位置は物理演算で補正される）
+        bodies.B.mass = newMassB;
+        bodies.B.radius = 7 + newMassB;
+    }
+
     elements.massBValue.textContent = bodies.B.mass.toFixed(0);
-    // 半径は質量に応じて設定（1→8, 5→12程度）
-    bodies.B.radius = 7 + bodies.B.mass;
     updateParameters();
 });
 
@@ -548,28 +598,11 @@ elements.resetBtn.addEventListener('click', () => {
     const currentMassA = bodies.A.mass;
     const currentMassB = bodies.B.mass;
 
-    // 位置と速度をリセット
-    bodies.A = JSON.parse(JSON.stringify(initialState.A));
-    bodies.B = JSON.parse(JSON.stringify(initialState.B));
-
-    // 質量を現在の値に戻す
-    bodies.A.mass = currentMassA;
-    bodies.B.mass = currentMassB;
-
-    // 半径を質量に応じて再計算
-    bodies.A.radius = 15 + (bodies.A.mass / 1000) * 4;
-    bodies.B.radius = 7 + bodies.B.mass;
-
-    // 惑星をアクティブに
-    bodies.A.active = true;
-    bodies.B.active = true;
+    // 現在の質量で重心原点の初期状態を再生成
+    bodies = initializeBodies(currentMassA, currentMassB);
 
     // 爆発エフェクトをリセット
     explosion.active = false;
-
-    // 軌道をクリア
-    bodies.A.trail = [];
-    bodies.B.trail = [];
 
     elements.instructions.classList.remove('hidden');
     updateParameters();
