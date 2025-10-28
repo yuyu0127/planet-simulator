@@ -496,10 +496,14 @@ function updatePhysics() {
         const dy = bodies.B.y - bodies.A.y;
         const distance = Math.sqrt(dx * dx + dy * dy);
 
-        if (distance < bodies.A.radius + bodies.B.radius) {
+        // 半径をシミュレーション座標系に変換（ピクセル → シミュレーション座標）
+        const radiusA = bodies.A.radius / state.scale;
+        const radiusB = bodies.B.radius / state.scale;
+
+        if (distance < radiusA + radiusB) {
             // 衝突発生！
-            const collisionX = (bodies.A.x * bodies.B.radius + bodies.B.x * bodies.A.radius) / (bodies.A.radius + bodies.B.radius);
-            const collisionY = (bodies.A.y * bodies.B.radius + bodies.B.y * bodies.A.radius) / (bodies.A.radius + bodies.B.radius);
+            const collisionX = (bodies.A.x * radiusB + bodies.B.x * radiusA) / (radiusA + radiusB);
+            const collisionY = (bodies.A.y * radiusB + bodies.B.y * radiusA) / (radiusA + radiusB);
 
             explosion.active = true;
             explosion.x = collisionX;
