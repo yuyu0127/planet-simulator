@@ -9,7 +9,7 @@
 <body>
     <div class="container">
         <header>
-            <h1>二体問題シミュレーター</h1>
+            <h1>2次元惑星シミュレーター</h1>
         </header>
 
         <div class="main-content">
@@ -17,33 +17,33 @@
             <div class="parameters-panel">
                 <h2>パラメータ</h2>
                 <div class="parameter-group">
-                    <h3>質点 A</h3>
+                    <h3>惑星 A</h3>
                     <div class="param-item">
                         <span class="param-label">質量 <var>m</var><sub>A</sub>:</span>
-                        <span id="mass-a-display" class="param-value">100.00</span>
+                        <span id="mass-a-display" class="param-value">3000</span>
                     </div>
                     <div class="param-item">
                         <span class="param-label">座標:</span>
                         <span id="pos-a" class="param-value">(0.00, 0.00)</span>
                     </div>
                     <div class="param-item">
-                        <span class="param-label">速度 |<var>v</var><sub>A</sub>|:</span>
+                        <span class="param-label">速さ |<var>v</var><sub>A</sub>|:</span>
                         <span id="vel-a" class="param-value">0.00</span>
                     </div>
                 </div>
 
                 <div class="parameter-group">
-                    <h3>質点 B</h3>
+                    <h3>惑星 B</h3>
                     <div class="param-item">
                         <span class="param-label">質量 <var>m</var><sub>B</sub>:</span>
-                        <span id="mass-b-display" class="param-value">100.00</span>
+                        <span id="mass-b-display" class="param-value">3</span>
                     </div>
                     <div class="param-item">
                         <span class="param-label">座標:</span>
                         <span id="pos-b" class="param-value">(0.00, 0.00)</span>
                     </div>
                     <div class="param-item">
-                        <span class="param-label">速度 |<var>v</var><sub>B</sub>|:</span>
+                        <span class="param-label">速さ |<var>v</var><sub>B</sub>|:</span>
                         <span id="vel-b" class="param-value">0.00</span>
                     </div>
                 </div>
@@ -51,16 +51,16 @@
                 <div class="parameter-group">
                     <h3>軌道パラメータ</h3>
                     <div class="param-item">
+                        <span class="param-label">AB間の距離 <var>r</var>:</span>
+                        <span id="distance" class="param-value">0.00</span>
+                    </div>
+                    <div class="param-item">
                         <span class="param-label">長半軸 <var>a</var>:</span>
                         <span id="semi-major" class="param-value">0.00</span>
                     </div>
                     <div class="param-item">
                         <span class="param-label">短半軸 <var>b</var>:</span>
                         <span id="semi-minor" class="param-value">0.00</span>
-                    </div>
-                    <div class="param-item">
-                        <span class="param-label">距離 <var>r</var>:</span>
-                        <span id="distance" class="param-value">0.00</span>
                     </div>
                     <div class="param-item">
                         <span class="param-label">周期 <var>T</var>:</span>
@@ -73,7 +73,7 @@
             <div class="canvas-panel">
                 <canvas id="simulation-canvas"></canvas>
                 <div class="instructions" id="instructions">
-                    質点をドラッグして初速度を設定してください
+                    惑星Bをドラッグして初速度を設定してください
                 </div>
             </div>
 
@@ -83,14 +83,14 @@
 
                 <div class="control-group">
                     <label for="mass-a">質量 <var>m</var><sub>A</sub></label>
-                    <input type="range" id="mass-a" min="0" max="100" value="50" step="1">
-                    <span id="mass-a-value">100</span>
+                    <input type="range" id="mass-a" min="0" max="4" value="2" step="1">
+                    <span id="mass-a-value">3000</span>
                 </div>
 
                 <div class="control-group">
                     <label for="mass-b">質量 <var>m</var><sub>B</sub></label>
-                    <input type="range" id="mass-b" min="0" max="100" value="50" step="1">
-                    <span id="mass-b-value">100</span>
+                    <input type="range" id="mass-b" min="0" max="4" value="2" step="1">
+                    <span id="mass-b-value">3</span>
                 </div>
 
                 <div class="control-group">
@@ -119,33 +119,6 @@
                     </label>
                 </div>
 
-                <div class="control-group">
-                    <label>
-                        <input type="checkbox" id="follow-cm">
-                        重心に追従
-                    </label>
-                </div>
-
-                <div class="control-group">
-                    <label>
-                        <input type="checkbox" id="show-velocity" checked>
-                        速度ベクトル表示
-                    </label>
-                </div>
-
-                <div class="control-group">
-                    <label>
-                        <input type="checkbox" id="show-force" checked>
-                        力ベクトル表示
-                    </label>
-                </div>
-
-                <div class="control-group">
-                    <label>
-                        <input type="checkbox" id="show-acceleration">
-                        加速度ベクトル表示
-                    </label>
-                </div>
             </div>
         </div>
     </div>

@@ -25,10 +25,6 @@ const elements = {
     resetBtn: document.getElementById('reset-btn'),
     showTrail: document.getElementById('show-trail'),
     showGrid: document.getElementById('show-grid'),
-    followCM: document.getElementById('follow-cm'),
-    showVelocity: document.getElementById('show-velocity'),
-    showForce: document.getElementById('show-force'),
-    showAcceleration: document.getElementById('show-acceleration'),
     instructions: document.getElementById('instructions')
 };
 
@@ -45,42 +41,55 @@ let state = {
     dragStart: { x: 0, y: 0 },
     currentMouse: { x: 0, y: 0 },
     showTrail: true,
-    showGrid: true,
-    followCM: false,
-    showVelocity: true,
-    showForce: true,
-    showAcceleration: false
+    showGrid: true
 };
 
 // 質量変換関数（スライダー値 → 実際の質量）
-function sliderToMass(sliderValue) {
-    // スライダー 0-100 を 1-10000 の指数スケールに変換
-    // value=0 → 1, value=25 → 10, value=50 → 100, value=75 → 1000, value=100 → 10000
-    return Math.pow(10, sliderValue / 25);
+function sliderToMassA(sliderValue) {
+    // スライダー 0-4 を 1000-5000 に変換
+    // value=0 → 1000, value=1 → 2000, ..., value=4 → 5000
+    return 1000 * (sliderValue + 1);
 }
 
-// 質点データ
+function sliderToMassB(sliderValue) {
+    // スライダー 0-4 を 1-5 に変換
+    // value=0 → 1, value=1 → 2, ..., value=4 → 5
+    return sliderValue + 1;
+}
+
+// 惑星データ
 let bodies = {
     A: {
-        mass: 100, // sliderValue=50 → 10^(50/25) = 100
+        mass: 3000, // sliderValue=2 → 1000 * (2 + 1) = 3000
         x: 0,
         y: 0,
         vx: 0,
         vy: 0,
-        radius: 15,
+        radius: 25, // 大きな質量に対応した半径
         color: '#FF5722',
-        trail: []
+        trail: [],
+        active: true
     },
     B: {
-        mass: 100, // sliderValue=50 → 10^(50/25) = 100
+        mass: 3, // sliderValue=2 → 2 + 1 = 3
         x: 150,
         y: 0,
         vx: 0,
         vy: 0,
-        radius: 15,
+        radius: 10,
         color: '#2196F3',
-        trail: []
+        trail: [],
+        active: true
     }
+};
+
+// 爆発エフェクトの状態
+let explosion = {
+    active: false,
+    x: 0,
+    y: 0,
+    startTime: 0,
+    duration: 1000 // 1秒間表示
 };
 
 // 初期位置を保存
@@ -160,8 +169,11 @@ function drawGrid() {
     ctx.stroke();
 }
 
-// 質点描画
+// 惑星描画
 function drawBody(body, label) {
+    // アクティブでない場合は描画しない
+    if (!body.active) return;
+
     const pos = toCanvas(body.x, body.y);
 
     // 軌道描画
@@ -180,7 +192,7 @@ function drawBody(body, label) {
         ctx.globalAlpha = 1;
     }
 
-    // 質点本体
+    // 惑星本体
     ctx.fillStyle = body.color;
     ctx.beginPath();
     ctx.arc(pos.x, pos.y, body.radius, 0, Math.PI * 2);
@@ -199,189 +211,58 @@ function drawBody(body, label) {
     ctx.fillText(label, pos.x, pos.y);
 }
 
-// 速度ベクトル描画（ドラッグ中）
-function drawVelocityArrow(body, label) {
-    if (state.dragging !== label) return;
+// 爆発エフェクト描画
+function drawExplosion() {
+    if (!explosion.active) return;
 
-    const pos = toCanvas(body.x, body.y);
-    const arrowEnd = toCanvas(state.currentMouse.x, state.currentMouse.y);
-
-    const dx = arrowEnd.x - pos.x;
-    const dy = arrowEnd.y - pos.y;
-    const length = Math.sqrt(dx * dx + dy * dy);
-
-    if (length < 5) return;
-
-    // 矢印の線
-    ctx.strokeStyle = '#FFD700';
-    ctx.lineWidth = 3;
-    ctx.beginPath();
-    ctx.moveTo(pos.x, pos.y);
-    ctx.lineTo(arrowEnd.x, arrowEnd.y);
-    ctx.stroke();
-
-    // 矢印の頭
-    const angle = Math.atan2(dy, dx);
-    const arrowSize = 15;
-    ctx.fillStyle = '#FFD700';
-    ctx.beginPath();
-    ctx.moveTo(arrowEnd.x, arrowEnd.y);
-    ctx.lineTo(
-        arrowEnd.x - arrowSize * Math.cos(angle - Math.PI / 6),
-        arrowEnd.y - arrowSize * Math.sin(angle - Math.PI / 6)
-    );
-    ctx.lineTo(
-        arrowEnd.x - arrowSize * Math.cos(angle + Math.PI / 6),
-        arrowEnd.y - arrowSize * Math.sin(angle + Math.PI / 6)
-    );
-    ctx.closePath();
-    ctx.fill();
-}
-
-// ベクトル描画ヘルパー関数
-function drawArrow(fromX, fromY, toX, toY, color, mainLabel, subLabel) {
-    const dx = toX - fromX;
-    const dy = toY - fromY;
-    const length = Math.sqrt(dx * dx + dy * dy);
-
-    if (length < 3) return;
-
-    // 矢印の線
-    ctx.strokeStyle = color;
-    ctx.lineWidth = 2;
-    ctx.beginPath();
-    ctx.moveTo(fromX, fromY);
-    ctx.lineTo(toX, toY);
-    ctx.stroke();
-
-    // 矢印の頭
-    const angle = Math.atan2(dy, dx);
-    const arrowSize = 10;
-    ctx.fillStyle = color;
-    ctx.beginPath();
-    ctx.moveTo(toX, toY);
-    ctx.lineTo(
-        toX - arrowSize * Math.cos(angle - Math.PI / 6),
-        toY - arrowSize * Math.sin(angle - Math.PI / 6)
-    );
-    ctx.lineTo(
-        toX - arrowSize * Math.cos(angle + Math.PI / 6),
-        toY - arrowSize * Math.sin(angle + Math.PI / 6)
-    );
-    ctx.closePath();
-    ctx.fill();
-
-    // ラベル（下付き文字対応）
-    if (mainLabel) {
-        ctx.fillStyle = color;
-
-        // メイン文字（イタリック）
-        ctx.font = 'italic bold 14px Georgia, serif';
-        ctx.textAlign = 'left';
-        const mainWidth = ctx.measureText(mainLabel).width;
-        const labelX = toX - mainWidth / 2 - 3;
-        const labelY = toY - 15;
-        ctx.fillText(mainLabel, labelX, labelY);
-
-        // 下付き文字
-        if (subLabel) {
-            ctx.font = 'italic bold 10px Georgia, serif';
-            ctx.fillText(subLabel, labelX + mainWidth, labelY + 3);
-        }
+    const elapsed = Date.now() - explosion.startTime;
+    if (elapsed > explosion.duration) {
+        explosion.active = false;
+        return;
     }
-}
 
-// 速度ベクトル表示
-function drawVelocityVectors() {
-    if (!state.showVelocity) return;
+    const progress = elapsed / explosion.duration;
+    const pos = toCanvas(explosion.x, explosion.y);
 
-    // 質点Aの速度ベクトル
-    const posA = toCanvas(bodies.A.x, bodies.A.y);
-    const velEndA = toCanvas(
-        bodies.A.x + bodies.A.vx * 20,
-        bodies.A.y + bodies.A.vy * 20
-    );
-    drawArrow(posA.x, posA.y, velEndA.x, velEndA.y, '#00FF00', 'v', 'A');
+    // 複数の同心円で爆発を表現
+    const maxRadius = 80;
+    const numCircles = 5;
 
-    // 質点Bの速度ベクトル
-    const posB = toCanvas(bodies.B.x, bodies.B.y);
-    const velEndB = toCanvas(
-        bodies.B.x + bodies.B.vx * 20,
-        bodies.B.y + bodies.B.vy * 20
-    );
-    drawArrow(posB.x, posB.y, velEndB.x, velEndB.y, '#00FF00', 'v', 'B');
-}
+    for (let i = 0; i < numCircles; i++) {
+        const phase = (progress + i * 0.1) % 1;
+        const radius = maxRadius * phase;
+        const alpha = 1 - phase;
 
-// 力ベクトル表示
-function drawForceVectors() {
-    if (!state.showForce) return;
+        ctx.strokeStyle = `rgba(255, ${100 + i * 30}, 0, ${alpha * 0.8})`;
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+        ctx.arc(pos.x, pos.y, radius, 0, Math.PI * 2);
+        ctx.stroke();
+    }
 
-    // AがBから受ける力を計算
-    const dx = bodies.B.x - bodies.A.x;
-    const dy = bodies.B.y - bodies.A.y;
-    const distSq = dx * dx + dy * dy;
-    const dist = Math.sqrt(distSq);
+    // 中心の明るい光
+    const centralAlpha = 1 - progress;
+    const gradient = ctx.createRadialGradient(pos.x, pos.y, 0, pos.x, pos.y, 40);
+    gradient.addColorStop(0, `rgba(255, 255, 255, ${centralAlpha})`);
+    gradient.addColorStop(0.5, `rgba(255, 200, 0, ${centralAlpha * 0.7})`);
+    gradient.addColorStop(1, 'rgba(255, 100, 0, 0)');
 
-    if (dist < 0.1) return;
-
-    const force = state.G * bodies.B.mass / distSq;
-    const forceScale = 50; // 表示用のスケール
-
-    // 質点Aに働く力
-    const posA = toCanvas(bodies.A.x, bodies.A.y);
-    const forceEndA = toCanvas(
-        bodies.A.x + (dx / dist) * force * forceScale,
-        bodies.A.y + (dy / dist) * force * forceScale
-    );
-    drawArrow(posA.x, posA.y, forceEndA.x, forceEndA.y, '#FF00FF', 'F', 'A');
-
-    // 質点Bに働く力（反対方向）
-    const posB = toCanvas(bodies.B.x, bodies.B.y);
-    const forceB = state.G * bodies.A.mass / distSq;
-    const forceEndB = toCanvas(
-        bodies.B.x - (dx / dist) * forceB * forceScale,
-        bodies.B.y - (dy / dist) * forceB * forceScale
-    );
-    drawArrow(posB.x, posB.y, forceEndB.x, forceEndB.y, '#FF00FF', 'F', 'B');
-}
-
-// 加速度ベクトル表示
-function drawAccelerationVectors() {
-    if (!state.showAcceleration) return;
-
-    // 質点Aの加速度を計算
-    const accA = calculateAcceleration(bodies.A, bodies.B);
-    const posA = toCanvas(bodies.A.x, bodies.A.y);
-    const accEndA = toCanvas(
-        bodies.A.x + accA.ax * 50,
-        bodies.A.y + accA.ay * 50
-    );
-    drawArrow(posA.x, posA.y, accEndA.x, accEndA.y, '#FFA500', 'a', 'A');
-
-    // 質点Bの加速度を計算
-    const accB = calculateAcceleration(bodies.B, bodies.A);
-    const posB = toCanvas(bodies.B.x, bodies.B.y);
-    const accEndB = toCanvas(
-        bodies.B.x + accB.ax * 50,
-        bodies.B.y + accB.ay * 50
-    );
-    drawArrow(posB.x, posB.y, accEndB.x, accEndB.y, '#FFA500', 'a', 'B');
+    ctx.fillStyle = gradient;
+    ctx.beginPath();
+    ctx.arc(pos.x, pos.y, 40, 0, Math.PI * 2);
+    ctx.fill();
 }
 
 // 描画メインループ
 function draw() {
-    // 重心の座標を計算
-    const cmX = (bodies.A.mass * bodies.A.x + bodies.B.mass * bodies.B.x) / (bodies.A.mass + bodies.B.mass);
-    const cmY = (bodies.A.mass * bodies.A.y + bodies.B.mass * bodies.B.y) / (bodies.A.mass + bodies.B.mass);
+    // 重心の座標を計算（両方の惑星がアクティブな場合のみ）
+    if (bodies.A.active && bodies.B.active) {
+        const cmX = (bodies.A.mass * bodies.A.x + bodies.B.mass * bodies.B.x) / (bodies.A.mass + bodies.B.mass);
+        const cmY = (bodies.A.mass * bodies.A.y + bodies.B.mass * bodies.B.y) / (bodies.A.mass + bodies.B.mass);
 
-    // 重心追従モードの場合、オフセットを調整
-    if (state.followCM) {
+        // カメラを重心に自動追従
         state.offsetX = canvas.width / 2 - cmX;
         state.offsetY = canvas.height / 2 + cmY;
-    } else {
-        // 通常モードでは中心に固定
-        state.offsetX = canvas.width / 2;
-        state.offsetY = canvas.height / 2;
     }
 
     ctx.fillStyle = '#0a0a0a';
@@ -391,17 +272,19 @@ function draw() {
     drawBody(bodies.A, 'A');
     drawBody(bodies.B, 'B');
 
-    // 重心を描画
-    const cmPos = toCanvas(cmX, cmY);
-    ctx.fillStyle = '#00BCD4';
-    ctx.beginPath();
-    ctx.arc(cmPos.x, cmPos.y, 5, 0, Math.PI * 2);
-    ctx.fill();
+    // 重心を描画（両方の惑星がアクティブな場合のみ）
+    if (bodies.A.active && bodies.B.active) {
+        const cmX = (bodies.A.mass * bodies.A.x + bodies.B.mass * bodies.B.x) / (bodies.A.mass + bodies.B.mass);
+        const cmY = (bodies.A.mass * bodies.A.y + bodies.B.mass * bodies.B.y) / (bodies.A.mass + bodies.B.mass);
+        const cmPos = toCanvas(cmX, cmY);
+        ctx.fillStyle = '#00BCD4';
+        ctx.beginPath();
+        ctx.arc(cmPos.x, cmPos.y, 5, 0, Math.PI * 2);
+        ctx.fill();
+    }
 
-    // ベクトル表示
-    drawVelocityVectors();
-    drawForceVectors();
-    drawAccelerationVectors();
+    // 爆発エフェクト描画
+    drawExplosion();
 }
 
 // 重力加速度計算
@@ -422,6 +305,9 @@ function calculateAcceleration(body1, body2) {
 
 // 物理シミュレーション（Velocity Verlet法）
 function updatePhysics() {
+    // 両方の惑星がアクティブでない場合は更新しない
+    if (!bodies.A.active || !bodies.B.active) return;
+
     const dt = state.dt * state.speedMultiplier;
 
     // 加速度計算
@@ -450,6 +336,31 @@ function updatePhysics() {
     bodies.B.vx += accB2.ax * dt / 2;
     bodies.B.vy += accB2.ay * dt / 2;
 
+    // 衝突判定
+    const dx = bodies.B.x - bodies.A.x;
+    const dy = bodies.B.y - bodies.A.y;
+    const distance = Math.sqrt(dx * dx + dy * dy);
+
+    if (distance < bodies.A.radius + bodies.B.radius) {
+        // 衝突発生！
+        const collisionX = (bodies.A.x * bodies.B.radius + bodies.B.x * bodies.A.radius) / (bodies.A.radius + bodies.B.radius);
+        const collisionY = (bodies.A.y * bodies.B.radius + bodies.B.y * bodies.A.radius) / (bodies.A.radius + bodies.B.radius);
+
+        explosion.active = true;
+        explosion.x = collisionX;
+        explosion.y = collisionY;
+        explosion.startTime = Date.now();
+
+        // 両方の惑星を非アクティブに
+        bodies.A.active = false;
+        bodies.B.active = false;
+
+        // シミュレーションを停止
+        state.running = false;
+        elements.startBtn.disabled = false;
+        elements.stopBtn.disabled = true;
+    }
+
     // 軌道記録
     if (state.showTrail) {
         bodies.A.trail.push({ x: bodies.A.x, y: bodies.A.y });
@@ -466,8 +377,8 @@ function updateParameters() {
     const vA = Math.sqrt(bodies.A.vx ** 2 + bodies.A.vy ** 2);
     const vB = Math.sqrt(bodies.B.vx ** 2 + bodies.B.vy ** 2);
 
-    elements.massADisplay.textContent = bodies.A.mass.toFixed(2);
-    elements.massBDisplay.textContent = bodies.B.mass.toFixed(2);
+    elements.massADisplay.textContent = bodies.A.mass.toFixed(0);
+    elements.massBDisplay.textContent = bodies.B.mass.toFixed(0);
     elements.posA.textContent = `(${bodies.A.x.toFixed(2)}, ${bodies.A.y.toFixed(2)})`;
     elements.posB.textContent = `(${bodies.B.x.toFixed(2)}, ${bodies.B.y.toFixed(2)})`;
     elements.velA.textContent = vA.toFixed(2);
@@ -512,15 +423,10 @@ function handleDragStart(clientX, clientY) {
     const canvasY = clientY - rect.top;
     const simPos = toSimulation(canvasX, canvasY);
 
-    // どちらの質点をクリックしたか判定
-    const distA = Math.sqrt((simPos.x - bodies.A.x) ** 2 + (simPos.y - bodies.A.y) ** 2);
+    // 惑星Bのみドラッグ可能
     const distB = Math.sqrt((simPos.x - bodies.B.x) ** 2 + (simPos.y - bodies.B.y) ** 2);
 
-    if (distA < bodies.A.radius) {
-        state.dragging = 'A';
-        state.dragStart = { x: bodies.A.x, y: bodies.A.y };
-        state.currentMouse = { x: bodies.A.x, y: bodies.A.y };
-    } else if (distB < bodies.B.radius) {
+    if (distB < bodies.B.radius) {
         state.dragging = 'B';
         state.dragStart = { x: bodies.B.x, y: bodies.B.y };
         state.currentMouse = { x: bodies.B.x, y: bodies.B.y };
@@ -599,17 +505,19 @@ canvas.addEventListener('touchcancel', (e) => {
 // UI イベント
 elements.massA.addEventListener('input', (e) => {
     const sliderValue = parseFloat(e.target.value);
-    bodies.A.mass = sliderToMass(sliderValue);
-    elements.massAValue.textContent = bodies.A.mass.toFixed(2);
-    bodies.A.radius = Math.max(8, Math.min(30, 10 + Math.log10(bodies.A.mass) * 3));
+    bodies.A.mass = sliderToMassA(sliderValue);
+    elements.massAValue.textContent = bodies.A.mass.toFixed(0);
+    // 半径は質量に応じて設定（1000→20, 5000→35程度）
+    bodies.A.radius = 15 + (bodies.A.mass / 1000) * 4;
     updateParameters();
 });
 
 elements.massB.addEventListener('input', (e) => {
     const sliderValue = parseFloat(e.target.value);
-    bodies.B.mass = sliderToMass(sliderValue);
-    elements.massBValue.textContent = bodies.B.mass.toFixed(2);
-    bodies.B.radius = Math.max(8, Math.min(30, 10 + Math.log10(bodies.B.mass) * 3));
+    bodies.B.mass = sliderToMassB(sliderValue);
+    elements.massBValue.textContent = bodies.B.mass.toFixed(0);
+    // 半径は質量に応じて設定（1→8, 5→12程度）
+    bodies.B.radius = 7 + bodies.B.mass;
     updateParameters();
 });
 
@@ -649,8 +557,15 @@ elements.resetBtn.addEventListener('click', () => {
     bodies.B.mass = currentMassB;
 
     // 半径を質量に応じて再計算
-    bodies.A.radius = Math.max(8, Math.min(30, 10 + Math.log10(bodies.A.mass) * 3));
-    bodies.B.radius = Math.max(8, Math.min(30, 10 + Math.log10(bodies.B.mass) * 3));
+    bodies.A.radius = 15 + (bodies.A.mass / 1000) * 4;
+    bodies.B.radius = 7 + bodies.B.mass;
+
+    // 惑星をアクティブに
+    bodies.A.active = true;
+    bodies.B.active = true;
+
+    // 爆発エフェクトをリセット
+    explosion.active = false;
 
     // 軌道をクリア
     bodies.A.trail = [];
@@ -670,22 +585,6 @@ elements.showTrail.addEventListener('change', (e) => {
 
 elements.showGrid.addEventListener('change', (e) => {
     state.showGrid = e.target.checked;
-});
-
-elements.followCM.addEventListener('change', (e) => {
-    state.followCM = e.target.checked;
-});
-
-elements.showVelocity.addEventListener('change', (e) => {
-    state.showVelocity = e.target.checked;
-});
-
-elements.showForce.addEventListener('change', (e) => {
-    state.showForce = e.target.checked;
-});
-
-elements.showAcceleration.addEventListener('change', (e) => {
-    state.showAcceleration = e.target.checked;
 });
 
 // 初期化
