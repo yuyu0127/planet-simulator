@@ -37,7 +37,7 @@ const elements = {
 // シミュレーション状態
 let state = {
     running: false,
-    scale: 1,
+    scale: 50, // 座標系のスケール係数（シミュレーション座標 × 50 = キャンバス座標）
     offsetX: 0,
     offsetY: 0,
     G: 100, // 重力定数（調整済み）
@@ -61,8 +61,8 @@ function sliderToMass(sliderValue) {
 
 // 惑星データを初期化する関数
 function initializeBodies(massA, massB, radiusA, radiusB) {
-    // 惑星Bを原点から150の位置に配置
-    const xB = 150;
+    // 惑星Bを原点から3の位置に配置（150 / 50 = 3）
+    const xB = 3;
     // 重心が原点になるように惑星Aの位置を計算
     const xA = -massB * xB / massA;
 
@@ -118,16 +118,16 @@ function resizeCanvas() {
 // 座標変換（シミュレーション座標 → キャンバス座標）
 function toCanvas(x, y) {
     return {
-        x: x + state.offsetX,
-        y: -y + state.offsetY
+        x: x * state.scale + state.offsetX,
+        y: -y * state.scale + state.offsetY
     };
 }
 
 // 座標変換（キャンバス座標 → シミュレーション座標）
 function toSimulation(x, y) {
     return {
-        x: x - state.offsetX,
-        y: -(y - state.offsetY)
+        x: (x - state.offsetX) / state.scale,
+        y: -(y - state.offsetY) / state.scale
     };
 }
 
@@ -138,11 +138,11 @@ function drawGrid() {
     ctx.strokeStyle = '#222';
     ctx.lineWidth = 1;
 
-    const gridSize = 50;
-    const startX = -state.offsetX;
-    const startY = -state.offsetY;
-    const endX = canvas.width - state.offsetX;
-    const endY = canvas.height - state.offsetY;
+    const gridSize = 1; // シミュレーション座標系での1単位
+    const startX = -state.offsetX / state.scale;
+    const startY = -state.offsetY / state.scale;
+    const endX = (canvas.width - state.offsetX) / state.scale;
+    const endY = (canvas.height - state.offsetY) / state.scale;
 
     // 垂直線
     for (let x = Math.floor(startX / gridSize) * gridSize; x <= endX; x += gridSize) {
