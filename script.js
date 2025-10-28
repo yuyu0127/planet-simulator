@@ -8,10 +8,7 @@ const elements = {
     posB: document.getElementById('pos-b'),
     velA: document.getElementById('vel-a'),
     velB: document.getElementById('vel-b'),
-    semiMajor: document.getElementById('semi-major'),
-    semiMinor: document.getElementById('semi-minor'),
     distance: document.getElementById('distance'),
-    period: document.getElementById('period'),
     massA: document.getElementById('mass-a'),
     massB: document.getElementById('mass-b'),
     speed: document.getElementById('speed'),
@@ -551,26 +548,6 @@ function updateParameters() {
     elements.velA.textContent = vA.toFixed(2);
     elements.velB.textContent = vB.toFixed(2);
     elements.distance.textContent = r.toFixed(2);
-
-    // 軌道パラメータ（簡易計算）
-    const mu = state.G * (bodies.A.mass + bodies.B.mass);
-    const v = vA + vB; // 相対速度の近似
-    const E = 0.5 * v * v - mu / r; // 比エネルギー
-
-    if (E < 0) {
-        const a = -mu / (2 * E);
-        const period = 2 * Math.PI * Math.sqrt(a ** 3 / mu);
-        const ecc = Math.sqrt(1 + 2 * E * (r * v) ** 2 / (mu * mu));
-        const b = a * Math.sqrt(1 - ecc * ecc);
-
-        elements.semiMajor.textContent = a.toFixed(2);
-        elements.semiMinor.textContent = b.toFixed(2);
-        elements.period.textContent = period.toFixed(2);
-    } else {
-        elements.semiMajor.textContent = '∞';
-        elements.semiMinor.textContent = '∞';
-        elements.period.textContent = '∞';
-    }
 }
 
 // アニメーションループ
