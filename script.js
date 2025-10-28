@@ -37,6 +37,7 @@ const elements = {
 // シミュレーション状態
 let state = {
     running: false,
+    wasRunning: false, // ドラッグ前に実行中だったかどうか
     scale: 50, // 座標系のスケール係数（シミュレーション座標 × 50 = キャンバス座標）
     offsetX: 0,
     offsetY: 0,
@@ -235,7 +236,7 @@ function drawForceVectors() {
 
     if (dist < 0.1) return;
 
-    const forceScale = 50; // 表示用のスケール
+    const forceScale = 1; // 表示用のスケール（50 / 50 = 1）
 
     // 惑星Aに働く力
     const forceA = state.G * bodies.B.mass / distSq;
@@ -254,6 +255,50 @@ function drawForceVectors() {
         bodies.B.y - (dy / dist) * forceB * forceScale
     );
     drawArrow(posB.x, posB.y, forceEndB.x, forceEndB.y, '#FF00FF', 'F', 'B');
+}
+
+// ドラッグ中の速度矢印表示
+function drawDragArrow() {
+    if (!state.dragging) return;
+
+    const body = bodies[state.dragging];
+    const posStart = toCanvas(body.x, body.y);
+    const posCurrent = toCanvas(state.currentMouse.x, state.currentMouse.y);
+
+    // ドラッグした方向と逆向きの矢印を描画
+    const dx = posStart.x - posCurrent.x;
+    const dy = posStart.y - posCurrent.y;
+    const length = Math.sqrt(dx * dx + dy * dy);
+
+    if (length < 5) return;
+
+    const arrowEndX = posStart.x + dx;
+    const arrowEndY = posStart.y + dy;
+
+    // 矢印の線
+    ctx.strokeStyle = '#FFD700';
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.moveTo(posStart.x, posStart.y);
+    ctx.lineTo(arrowEndX, arrowEndY);
+    ctx.stroke();
+
+    // 矢印の頭
+    const angle = Math.atan2(dy, dx);
+    const arrowSize = 15;
+    ctx.fillStyle = '#FFD700';
+    ctx.beginPath();
+    ctx.moveTo(arrowEndX, arrowEndY);
+    ctx.lineTo(
+        arrowEndX - arrowSize * Math.cos(angle - Math.PI / 6),
+        arrowEndY - arrowSize * Math.sin(angle - Math.PI / 6)
+    );
+    ctx.lineTo(
+        arrowEndX - arrowSize * Math.cos(angle + Math.PI / 6),
+        arrowEndY - arrowSize * Math.sin(angle + Math.PI / 6)
+    );
+    ctx.closePath();
+    ctx.fill();
 }
 
 // ベクトル描画ヘルパー関数
@@ -375,6 +420,9 @@ function draw() {
 
     // 力ベクトル表示
     drawForceVectors();
+
+    // ドラッグ中の速度矢印表示
+    drawDragArrow();
 
     // 爆発エフェクト描画
     drawExplosion();
@@ -528,13 +576,42 @@ function handleDragStart(clientX, clientY) {
     const canvasY = clientY - rect.top;
     const simPos = toSimulation(canvasX, canvasY);
 
-    // 惑星Bのみドラッグ可能
+    // どちらの惑星をドラッグしているか判定（両方ドラッグ可能）
+    const distA = Math.sqrt((simPos.x - bodies.A.x) ** 2 + (simPos.y - bodies.A.y) ** 2);
     const distB = Math.sqrt((simPos.x - bodies.B.x) ** 2 + (simPos.y - bodies.B.y) ** 2);
 
-    if (distB < bodies.B.radius) {
+    // 半径はピクセル単位なので、シミュレーション座標に変換して比較
+    const radiusA = bodies.A.radius / state.scale;
+    const radiusB = bodies.B.radius / state.scale;
+
+    if (distA < radiusA) {
+        state.dragging = 'A';
+        state.dragStart = { x: bodies.A.x, y: bodies.A.y };
+        state.currentMouse = { x: bodies.A.x, y: bodies.A.y };
+
+        // シミュレーションを一時停止
+        if (state.running) {
+            state.wasRunning = true;
+            state.running = false;
+            elements.startBtn.disabled = false;
+            elements.stopBtn.disabled = true;
+        } else {
+            state.wasRunning = false;
+        }
+    } else if (distB < radiusB) {
         state.dragging = 'B';
         state.dragStart = { x: bodies.B.x, y: bodies.B.y };
         state.currentMouse = { x: bodies.B.x, y: bodies.B.y };
+
+        // シミュレーションを一時停止
+        if (state.running) {
+            state.wasRunning = true;
+            state.running = false;
+            elements.startBtn.disabled = false;
+            elements.stopBtn.disabled = true;
+        } else {
+            state.wasRunning = false;
+        }
     }
 }
 
@@ -549,20 +626,32 @@ function handleDragMove(clientX, clientY) {
 
     state.currentMouse = { x: simPos.x, y: simPos.y };
 
-    const body = bodies[state.dragging];
-    // ドラッグした矢印の長さをそのまま速度に（スケール調整）
-    body.vx = (simPos.x - state.dragStart.x) * 0.05;
-    body.vy = (simPos.y - state.dragStart.y) * 0.05;
-
-    updateParameters();
+    // 速度はまだ設定しない（ドラッグ終了時に設定）
+    // ここでは矢印の表示のためにcurrentMouseを更新するだけ
 }
 
 // 共通のドラッグ終了処理
 function handleDragEnd() {
     if (state.dragging) {
+        const body = bodies[state.dragging];
+
+        // ドラッグした方向と逆向きに速度を設定
+        body.vx = -(state.currentMouse.x - state.dragStart.x) * 0.05;
+        body.vy = -(state.currentMouse.y - state.dragStart.y) * 0.05;
+
+        updateParameters();
+
+        // シミュレーションを再開（一時停止していた場合）
+        if (state.wasRunning) {
+            state.running = true;
+            elements.startBtn.disabled = true;
+            elements.stopBtn.disabled = false;
+        }
+
         elements.instructions.classList.add('hidden');
     }
     state.dragging = null;
+    state.wasRunning = false;
 }
 
 // マウスイベント
