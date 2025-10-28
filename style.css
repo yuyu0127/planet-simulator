@@ -9,6 +9,7 @@ body {
     background-color: #1a1a1a;
     color: #e0e0e0;
     overflow: hidden;
+    touch-action: manipulation;
 }
 
 /* 数式用の変数スタイル */
