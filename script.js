@@ -28,16 +28,29 @@ const elements = {
     zoomReset: document.getElementById('zoom-reset')
 };
 
+// 物理定数（単位系: kg, m, 年）
+const CONSTANTS = {
+    G: 6.644e4, // 重力定数 [m³/(kg·年²)]
+    SUN_MASS: 1.989e30, // 太陽の質量 [kg]
+    MARS_MASS: 6.39e23, // 火星の質量 [kg]
+    AU: 1.496e11, // 天文単位 [m]
+    SUN_RADIUS: 6.96e8, // 太陽の半径 [m]
+    MARS_RADIUS: 3.39e6, // 火星の半径 [m]
+    MARS_ORBIT: 2.279e11, // 火星の軌道長半径 [m]
+    MARS_PERIHELION: 2.066e11, // 火星の近日点距離 [m]
+    MARS_ECCENTRICITY: 0.0934 // 火星の軌道離心率
+};
+
 // シミュレーション状態
 let state = {
     running: false,
     wasRunning: false, // ドラッグ前に実行中だったかどうか
-    scale: 50, // 座標系のスケール係数（シミュレーション座標 × 50 = キャンバス座標）
+    scale: 65, // 座標系のスケール係数（10^11 m → ピクセル）
     offsetX: 0,
     offsetY: 0,
-    G: 1, // 重力定数（調整済み）
-    dt: 0.005, // タイムステップ
-    softening: 0.01, // 軟化パラメータ（近接時の計算安定化）
+    G: CONSTANTS.G, // 重力定数
+    dt: 0.0005, // タイムステップ [年]（約4.4時間）
+    softening: 1e9, // 軟化パラメータ [m]（近接時の計算安定化）
     speedMultiplier: 1,
     dragging: null,
     dragStart: { x: 0, y: 0 },
@@ -45,30 +58,35 @@ let state = {
     showTrail: true,
     showGrid: true,
     showForce: true,
-    enableCollision: true
+    enableCollision: true,
+    displayScale: 1e-11 // 表示用スケール（m → 10^11 m）
 };
 
-// 質量変換関数（スライダー値 → 実際の質量）
-// 線形スケール: 1 〜 100
-function sliderToMass(sliderValue) {
-    // sliderValue: 1 〜 100 → mass: 1 〜 100
-    return sliderValue;
-}
-
-// 質量から半径を計算（三乗根）
-// シミュレーション座標での半径を返す
-function calculateRadius(mass) {
-    // radius = k * mass^(1/3)
-    // k = 4 とすると、mass=1で4、mass=8で8、mass=27で12、mass=100で約18.5
-    // これをシミュレーション座標に変換（初期スケール50で割る）
-    return 4 * Math.pow(mass, 1/3) / 50;
+// 質量から表示用半径を計算
+// 実際の半径は軌道に比べて小さすぎるため、表示用に拡大
+function calculateDisplayRadius(mass, actualRadius) {
+    // 実際の半径を使用し、表示可能なサイズにスケーリング
+    // 太陽: 基準サイズ、火星: 太陽との比率を維持しつつ見やすく
+    if (mass > 1e29) {
+        // 太陽
+        return actualRadius * state.displayScale * 10; // 拡大して表示
+    } else {
+        // 火星
+        return actualRadius * state.displayScale * 50; // さらに拡大して表示
+    }
 }
 
 // 惑星データを初期化する関数
 function initializeBodies(massA, massB) {
     // 太陽（A）は原点に固定
-    // 火星（B）を原点から3の位置に配置
-    const xB = 3;
+    // 火星（B）を近日点距離に配置
+    const xB = CONSTANTS.MARS_PERIHELION; // [m]
+
+    // 近日点での速度を計算（垂直方向）
+    // v_p = sqrt(G * M_sun * (1 + e) / (a * (1 - e)))
+    const a = CONSTANTS.MARS_ORBIT;
+    const e = CONSTANTS.MARS_ECCENTRICITY;
+    const vyB = Math.sqrt(CONSTANTS.G * massA * (1 + e) / (a * (1 - e)));
 
     return {
         A: {
@@ -77,7 +95,8 @@ function initializeBodies(massA, massB) {
             y: 0,
             vx: 0,
             vy: 0,
-            radius: calculateRadius(massA),
+            actualRadius: CONSTANTS.SUN_RADIUS,
+            radius: calculateDisplayRadius(massA, CONSTANTS.SUN_RADIUS),
             color: '#FDB813', // 太陽の色（黄色）
             trail: [],
             active: true
@@ -87,8 +106,9 @@ function initializeBodies(massA, massB) {
             x: xB,
             y: 0,
             vx: 0,
-            vy: 0,
-            radius: calculateRadius(massB),
+            vy: vyB,
+            actualRadius: CONSTANTS.MARS_RADIUS,
+            radius: calculateDisplayRadius(massB, CONSTANTS.MARS_RADIUS),
             color: '#CD5C5C', // 火星の色（赤系）
             trail: [],
             active: true
@@ -96,8 +116,8 @@ function initializeBodies(massA, massB) {
     };
 }
 
-// 惑星データ（初期質量: 太陽=1000, 火星=1）
-let bodies = initializeBodies(1000, 1);
+// 惑星データ（実際の質量）
+let bodies = initializeBodies(CONSTANTS.SUN_MASS, CONSTANTS.MARS_MASS);
 
 // 爆発エフェクトの状態
 let explosion = {
@@ -119,19 +139,20 @@ function resizeCanvas() {
     state.offsetY = canvas.height / 2;
 }
 
-// 座標変換（シミュレーション座標 → キャンバス座標）
+// 座標変換（シミュレーション座標[m] → キャンバス座標[px]）
 function toCanvas(x, y) {
+    // x, y は m 単位 → 10^11 m 単位に変換してからスケール
     return {
-        x: x * state.scale + state.offsetX,
-        y: -y * state.scale + state.offsetY
+        x: x * state.displayScale * state.scale + state.offsetX,
+        y: -y * state.displayScale * state.scale + state.offsetY
     };
 }
 
-// 座標変換（キャンバス座標 → シミュレーション座標）
+// 座標変換（キャンバス座標[px] → シミュレーション座標[m]）
 function toSimulation(x, y) {
     return {
-        x: (x - state.offsetX) / state.scale,
-        y: -(y - state.offsetY) / state.scale
+        x: (x - state.offsetX) / (state.scale * state.displayScale),
+        y: -(y - state.offsetY) / (state.scale * state.displayScale)
     };
 }
 
@@ -142,11 +163,11 @@ function drawGrid() {
     ctx.strokeStyle = '#222';
     ctx.lineWidth = 1;
 
-    const gridSize = 1; // シミュレーション座標系での1単位
-    const startX = -state.offsetX / state.scale;
-    const startY = -state.offsetY / state.scale;
-    const endX = (canvas.width - state.offsetX) / state.scale;
-    const endY = (canvas.height - state.offsetY) / state.scale;
+    const gridSize = 0.5e11; // 0.5×10^11 m (約0.33 AU)
+    const startX = -state.offsetX / (state.scale * state.displayScale);
+    const startY = -state.offsetY / (state.scale * state.displayScale);
+    const endX = (canvas.width - state.offsetX) / (state.scale * state.displayScale);
+    const endY = (canvas.height - state.offsetY) / (state.scale * state.displayScale);
 
     // 垂直線
     for (let x = Math.floor(startX / gridSize) * gridSize; x <= endX; x += gridSize) {
@@ -467,9 +488,9 @@ function updatePhysics() {
         const dy = bodies.B.y - bodies.A.y;
         const distance = Math.sqrt(dx * dx + dy * dy);
 
-        // 半径はすでにシミュレーション座標系で保持されている
-        const radiusA = bodies.A.radius;
-        const radiusB = bodies.B.radius;
+        // 実際の半径で判定
+        const radiusA = bodies.A.actualRadius;
+        const radiusB = bodies.B.actualRadius;
 
         if (distance < radiusA + radiusB) {
             // 衝突発生！
@@ -506,11 +527,19 @@ function updateParameters() {
 
     const vB = Math.sqrt(bodies.B.vx ** 2 + bodies.B.vy ** 2);
 
-    elements.massADisplay.textContent = bodies.A.mass.toFixed(0);
-    elements.massBDisplay.textContent = bodies.B.mass.toFixed(1);
-    elements.posB.textContent = `(${bodies.B.x.toFixed(2)}, ${bodies.B.y.toFixed(2)})`;
-    elements.velB.textContent = vB.toFixed(2);
-    elements.distance.textContent = r.toFixed(2);
+    // 質量を科学的記法で表示
+    elements.massADisplay.textContent = (bodies.A.mass / 1e30).toFixed(2) + '×10³⁰ kg';
+    elements.massBDisplay.textContent = (bodies.B.mass / 1e23).toFixed(2) + '×10²³ kg';
+
+    // 位置を AU 単位で表示
+    elements.posB.textContent = `(${(bodies.B.x / CONSTANTS.AU).toFixed(3)}, ${(bodies.B.y / CONSTANTS.AU).toFixed(3)}) AU`;
+
+    // 速度を km/s 単位で表示（年単位 → 秒単位に変換）
+    const vB_ms = vB / 31557600; // m/年 → m/s
+    elements.velB.textContent = (vB_ms / 1000).toFixed(2) + ' km/s';
+
+    // 距離を AU 単位で表示
+    elements.distance.textContent = (r / CONSTANTS.AU).toFixed(3) + ' AU';
 }
 
 // アニメーションループ
@@ -533,8 +562,8 @@ function handleDragStart(clientX, clientY) {
     // 火星（B）のみドラッグ可能
     const distB = Math.sqrt((simPos.x - bodies.B.x) ** 2 + (simPos.y - bodies.B.y) ** 2);
 
-    // 半径はすでにシミュレーション座標系で保持されている
-    const radiusB = bodies.B.radius;
+    // 表示用の半径で判定（クリックしやすくするため）
+    const radiusB = bodies.B.radius / (state.scale * state.displayScale);
 
     if (distB < radiusB) {
         state.dragging = 'B';
@@ -635,23 +664,25 @@ canvas.addEventListener('touchcancel', (e) => {
 // UI イベント
 elements.massA.addEventListener('input', (e) => {
     const sliderValue = parseFloat(e.target.value);
-    const newMassA = sliderValue;
+    // スライダー値を実際の質量に変換（値×10^29 kg）
+    const newMassA = sliderValue * 1e29; // kg
 
     // 太陽の質量と半径のみ変更（位置は常に原点）
     bodies.A.mass = newMassA;
-    bodies.A.radius = calculateRadius(newMassA);
+    bodies.A.radius = calculateDisplayRadius(newMassA, CONSTANTS.SUN_RADIUS);
     bodies.A.x = 0;
     bodies.A.y = 0;
     bodies.A.vx = 0;
     bodies.A.vy = 0;
 
-    elements.massAValue.textContent = newMassA.toFixed(0);
+    elements.massAValue.textContent = (newMassA / 1e30).toFixed(2) + '×10³⁰';
     updateParameters();
 });
 
 elements.massB.addEventListener('input', (e) => {
     const sliderValue = parseFloat(e.target.value);
-    const newMassB = sliderValue;
+    // スライダー値を実際の質量に変換（値×10^22 kg）
+    const newMassB = sliderValue * 1e22; // kg
 
     // 質量変更時、位置と速度は保持
     if (!state.running) {
@@ -661,7 +692,8 @@ elements.massB.addEventListener('input', (e) => {
         const currentYB = bodies.B.y;
 
         bodies.B.mass = newMassB;
-        bodies.B.radius = calculateRadius(newMassB);
+        bodies.B.actualRadius = CONSTANTS.MARS_RADIUS * (sliderValue / 6.39);
+        bodies.B.radius = calculateDisplayRadius(newMassB, bodies.B.actualRadius);
 
         // 位置と速度は保持
         bodies.B.x = currentXB;
@@ -671,10 +703,11 @@ elements.massB.addEventListener('input', (e) => {
     } else {
         // シミュレーション実行中は質量と半径を変更
         bodies.B.mass = newMassB;
-        bodies.B.radius = calculateRadius(newMassB);
+        bodies.B.actualRadius = CONSTANTS.MARS_RADIUS * (sliderValue / 6.39);
+        bodies.B.radius = calculateDisplayRadius(newMassB, bodies.B.actualRadius);
     }
 
-    elements.massBValue.textContent = newMassB.toFixed(1);
+    elements.massBValue.textContent = (newMassB / 1e23).toFixed(2) + '×10²³';
     updateParameters();
 });
 
