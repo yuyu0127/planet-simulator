@@ -4,6 +4,7 @@ const ctx = canvas.getContext('2d');
 
 // UI要素
 const elements = {
+    time: document.getElementById('time'),
     posB: document.getElementById('pos-b'),
     velB: document.getElementById('vel-b'),
     distance: document.getElementById('distance'),
@@ -61,7 +62,8 @@ let state = {
     showGrid: true,
     showForce: true,
     enableCollision: true,
-    displayScale: 1e-11 // 表示用スケール（m → 10^11 m）
+    displayScale: 1e-11, // 表示用スケール（m → 10^11 m）
+    elapsedTime: 0 // 経過時間 [年]
 };
 
 // 質量から表示用半径を計算
@@ -455,6 +457,9 @@ function updatePhysics() {
 
     const dt = state.dt * state.speedMultiplier;
 
+    // 経過時間を更新
+    state.elapsedTime += dt;
+
     // 火星の加速度計算（太陽からの重力）
     const accB = calculateAcceleration(bodies.B, bodies.A);
 
@@ -562,6 +567,9 @@ function updateParameters() {
     // 質量を科学的記法で表示
     elements.massADisplay.textContent = (bodies.A.mass / 1e30).toFixed(2) + '×10³⁰ kg';
     elements.massBDisplay.textContent = (bodies.B.mass / 1e23).toFixed(2) + '×10²³ kg';
+
+    // 経過時間を表示
+    elements.time.textContent = state.elapsedTime.toFixed(3) + ' 年';
 
     // 位置を m 単位で表示（科学的記法）
     elements.posB.textContent = `(${bodies.B.x.toExponential(3)}, ${bodies.B.y.toExponential(3)}) m`;
@@ -729,6 +737,9 @@ elements.resetBtn.addEventListener('click', () => {
 
     // 爆発エフェクトをリセット
     explosion.active = false;
+
+    // 経過時間をリセット
+    state.elapsedTime = 0;
 
     elements.instructions.classList.remove('hidden');
     updateParameters();
