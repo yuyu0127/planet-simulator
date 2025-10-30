@@ -47,7 +47,7 @@ const CONSTANTS = {
 let state = {
     running: false,
     wasRunning: false, // ドラッグ前に実行中だったかどうか
-    scale: 65, // 座標系のスケール係数（10^11 m → ピクセル）
+    scale: 150, // 座標系のスケール係数（10^11 m → ピクセル）
     offsetX: 0,
     offsetY: 0,
     G: CONSTANTS.G, // 重力定数
@@ -765,8 +765,8 @@ elements.zoomOut.addEventListener('click', () => {
 });
 
 elements.zoomReset.addEventListener('click', () => {
-    // リセット（初期値50に戻す）
-    state.scale = 50;
+    // リセット（初期値に戻す）
+    state.scale = 150;
 });
 
 // 初期化
