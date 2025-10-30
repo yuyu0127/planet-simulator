@@ -521,21 +521,46 @@ function updatePhysics() {
     }
 }
 
-// 科学的記法のフォーマット（2e11 → 2×10¹¹）
-function formatScientific(value, precision = 2) {
-    const exp = value.toExponential(precision);
-    const [mantissa, exponent] = exp.split('e');
-    const expNum = parseInt(exponent);
+// 日本語単位でのフォーマット（2e8 → 2億）
+function formatJapanese(value, precision = 3) {
+    if (value === 0) return '0';
 
-    // 上付き文字に変換
-    const superscript = {
-        '0': '⁰', '1': '¹', '2': '²', '3': '³', '4': '⁴',
-        '5': '⁵', '6': '⁶', '7': '⁷', '8': '⁸', '9': '⁹',
-        '-': '⁻', '+': '⁺'
-    };
+    const absValue = Math.abs(value);
+    const sign = value < 0 ? '-' : '';
 
-    const expStr = expNum.toString().split('').map(c => superscript[c] || c).join('');
-    return `${mantissa}×10${expStr}`;
+    // 日本語の単位（4桁ごと）
+    const units = [
+        { threshold: 1e16, name: '京' },
+        { threshold: 1e12, name: '兆' },
+        { threshold: 1e8, name: '億' },
+        { threshold: 1e4, name: '万' }
+    ];
+
+    for (const unit of units) {
+        if (absValue >= unit.threshold) {
+            const quotient = absValue / unit.threshold;
+            return `${sign}${quotient.toPrecision(precision)}${unit.name}`;
+        }
+    }
+
+    // 1万未満の場合
+    if (absValue >= 1) {
+        return `${sign}${absValue.toPrecision(precision)}`;
+    } else {
+        // 小数の場合は科学的記法
+        const exp = value.toExponential(precision - 1);
+        const [mantissa, exponent] = exp.split('e');
+        const expNum = parseInt(exponent);
+
+        const superscript = {
+            '0': '⁰', '1': '¹', '2': '²', '3': '³', '4': '⁴',
+            '5': '⁵', '6': '⁶', '7': '⁷', '8': '⁸', '9': '⁹',
+            '-': '⁻', '+': '⁺'
+        };
+
+        const expStr = expNum.toString().split('').map(c => superscript[c] || c).join('');
+        return `${mantissa}×10${expStr}`;
+    }
 }
 
 // 軌道要素を計算
@@ -588,25 +613,25 @@ function updateParameters() {
     // 経過時間を表示
     elements.time.textContent = state.elapsedTime.toFixed(3) + ' 年';
 
-    // 位置を km 単位で表示（科学的記法）
+    // 位置を km 単位で表示（日本語単位）
     const xKm = bodies.B.x / 1000;
     const yKm = bodies.B.y / 1000;
-    elements.posB.textContent = `(${formatScientific(xKm, 3)}, ${formatScientific(yKm, 3)}) km`;
+    elements.posB.textContent = `(${formatJapanese(xKm, 4)}, ${formatJapanese(yKm, 4)}) km`;
 
     // 速度を km/s 単位で表示（m/年 → m/s → km/s）
     const vKmPerSec = orbital.v / 31557600 / 1000; // 1年 = 31,557,600秒
-    elements.velB.textContent = formatScientific(vKmPerSec, 3) + ' km/s';
+    elements.velB.textContent = formatJapanese(vKmPerSec, 4) + ' km/s';
 
     // 距離を km 単位で表示
     const rKm = orbital.r / 1000;
-    elements.distance.textContent = formatScientific(rKm, 3) + ' km';
+    elements.distance.textContent = formatJapanese(rKm, 4) + ' km';
 
     // 軌道パラメータ
     elements.period.textContent = orbital.T.toFixed(3) + ' 年';
     const aKm = orbital.a / 1000;
     const bKm = orbital.b / 1000;
-    elements.semiMajor.textContent = formatScientific(aKm, 3) + ' km';
-    elements.semiMinor.textContent = formatScientific(bKm, 3) + ' km';
+    elements.semiMajor.textContent = formatJapanese(aKm, 4) + ' km';
+    elements.semiMinor.textContent = formatJapanese(bKm, 4) + ' km';
     elements.eccentricity.textContent = orbital.e.toFixed(4);
     elements.angle.textContent = orbital.theta.toFixed(2) + '°';
     elements.sinAngle.textContent = orbital.sinTheta.toFixed(4);
