@@ -208,7 +208,7 @@ function drawGrid() {
 }
 
 // 惑星描画
-function drawBody(body, label) {
+function drawBody(body) {
     // アクティブでない場合は描画しない
     if (!body.active) return;
 
@@ -240,13 +240,6 @@ function drawBody(body, label) {
     ctx.strokeStyle = '#fff';
     ctx.lineWidth = 2;
     ctx.stroke();
-
-    // ラベル（太陽の場合は黒文字、火星の場合は白文字）
-    ctx.fillStyle = label === '太陽' ? '#000' : '#fff';
-    ctx.font = 'bold 16px Arial';
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    ctx.fillText(label, pos.x, pos.y);
 }
 
 // 力ベクトル表示
@@ -424,8 +417,8 @@ function draw() {
     ctx.fillRect(0, 0, canvas.width, canvas.height);
 
     drawGrid();
-    drawBody(bodies.A, '太陽');
-    drawBody(bodies.B, '火星');
+    drawBody(bodies.A);
+    drawBody(bodies.B);
 
     // 力ベクトル表示
     drawForceVectors();
