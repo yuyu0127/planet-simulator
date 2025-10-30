@@ -7,11 +7,13 @@ const elements = {
     posB: document.getElementById('pos-b'),
     velB: document.getElementById('vel-b'),
     distance: document.getElementById('distance'),
-    massA: document.getElementById('mass-a'),
-    massB: document.getElementById('mass-b'),
+    period: document.getElementById('period'),
+    semiMajor: document.getElementById('semi-major'),
+    semiMinor: document.getElementById('semi-minor'),
+    eccentricity: document.getElementById('eccentricity'),
+    angle: document.getElementById('angle'),
+    sinAngle: document.getElementById('sin-angle'),
     speed: document.getElementById('speed'),
-    massAValue: document.getElementById('mass-a-value'),
-    massBValue: document.getElementById('mass-b-value'),
     massADisplay: document.getElementById('mass-a-display'),
     massBDisplay: document.getElementById('mass-b-display'),
     speedValue: document.getElementById('speed-value'),
@@ -521,27 +523,69 @@ function updatePhysics() {
     }
 }
 
-// パラメータ更新
-function updateParameters() {
+// 軌道要素を計算
+function calculateOrbitalElements() {
     const dx = bodies.B.x - bodies.A.x;
     const dy = bodies.B.y - bodies.A.y;
     const r = Math.sqrt(dx * dx + dy * dy);
 
-    const vB = Math.sqrt(bodies.B.vx ** 2 + bodies.B.vy ** 2);
+    const vx = bodies.B.vx;
+    const vy = bodies.B.vy;
+    const v = Math.sqrt(vx * vx + vy * vy);
+
+    // 比エネルギー（単位質量あたりのエネルギー）
+    const mu = state.G * bodies.A.mass;
+    const specificEnergy = (v * v) / 2 - mu / r;
+
+    // 長半径 a = -mu / (2 * E)
+    const a = -mu / (2 * specificEnergy);
+
+    // 角運動量ベクトルの大きさ（z成分のみ、2次元なので）
+    const h = dx * vy - dy * vx;
+
+    // 離心率 e = sqrt(1 + 2*E*h^2/mu^2)
+    const e = Math.sqrt(1 + 2 * specificEnergy * h * h / (mu * mu));
+
+    // 短半径 b = a * sqrt(1 - e^2)
+    const b = a * Math.sqrt(Math.abs(1 - e * e));
+
+    // 周期 T = 2π * sqrt(a^3 / mu)
+    const T = 2 * Math.PI * Math.sqrt(Math.abs(a * a * a) / mu);
+
+    // 速度ベクトルと位置ベクトルのなす角 θ
+    // cos(θ) = (r・v) / (|r||v|)
+    const dotProduct = dx * vx + dy * vy;
+    const cosTheta = dotProduct / (r * v);
+    const theta = Math.acos(Math.max(-1, Math.min(1, cosTheta))) * 180 / Math.PI; // ラジアンから度へ
+    const sinTheta = Math.sin(Math.acos(Math.max(-1, Math.min(1, cosTheta))));
+
+    return { r, v, a, b, e, T, theta, sinTheta };
+}
+
+// パラメータ更新
+function updateParameters() {
+    const orbital = calculateOrbitalElements();
 
     // 質量を科学的記法で表示
     elements.massADisplay.textContent = (bodies.A.mass / 1e30).toFixed(2) + '×10³⁰ kg';
     elements.massBDisplay.textContent = (bodies.B.mass / 1e23).toFixed(2) + '×10²³ kg';
 
-    // 位置を AU 単位で表示
-    elements.posB.textContent = `(${(bodies.B.x / CONSTANTS.AU).toFixed(3)}, ${(bodies.B.y / CONSTANTS.AU).toFixed(3)}) AU`;
+    // 位置を m 単位で表示（科学的記法）
+    elements.posB.textContent = `(${bodies.B.x.toExponential(3)}, ${bodies.B.y.toExponential(3)}) m`;
 
-    // 速度を km/s 単位で表示（年単位 → 秒単位に変換）
-    const vB_ms = vB / 31557600; // m/年 → m/s
-    elements.velB.textContent = (vB_ms / 1000).toFixed(2) + ' km/s';
+    // 速度を m/年 単位で表示
+    elements.velB.textContent = orbital.v.toExponential(3) + ' m/年';
 
-    // 距離を AU 単位で表示
-    elements.distance.textContent = (r / CONSTANTS.AU).toFixed(3) + ' AU';
+    // 距離を m 単位で表示
+    elements.distance.textContent = orbital.r.toExponential(3) + ' m';
+
+    // 軌道パラメータ
+    elements.period.textContent = orbital.T.toFixed(3) + ' 年';
+    elements.semiMajor.textContent = orbital.a.toExponential(3) + ' m';
+    elements.semiMinor.textContent = orbital.b.toExponential(3) + ' m';
+    elements.eccentricity.textContent = orbital.e.toFixed(4);
+    elements.angle.textContent = orbital.theta.toFixed(2) + '°';
+    elements.sinAngle.textContent = orbital.sinTheta.toFixed(4);
 }
 
 // アニメーションループ
@@ -664,55 +708,6 @@ canvas.addEventListener('touchcancel', (e) => {
 });
 
 // UI イベント
-elements.massA.addEventListener('input', (e) => {
-    const sliderValue = parseFloat(e.target.value);
-    // スライダー値を実際の質量に変換（値×10^29 kg）
-    const newMassA = sliderValue * 1e29; // kg
-
-    // 太陽の質量と半径のみ変更（位置は常に原点）
-    bodies.A.mass = newMassA;
-    bodies.A.radius = calculateDisplayRadius(newMassA, CONSTANTS.SUN_RADIUS);
-    bodies.A.x = 0;
-    bodies.A.y = 0;
-    bodies.A.vx = 0;
-    bodies.A.vy = 0;
-
-    elements.massAValue.textContent = (newMassA / 1e30).toFixed(2) + '×10³⁰';
-    updateParameters();
-});
-
-elements.massB.addEventListener('input', (e) => {
-    const sliderValue = parseFloat(e.target.value);
-    // スライダー値を実際の質量に変換（値×10^22 kg）
-    const newMassB = sliderValue * 1e22; // kg
-
-    // 質量変更時、位置と速度は保持
-    if (!state.running) {
-        const currentVxB = bodies.B.vx;
-        const currentVyB = bodies.B.vy;
-        const currentXB = bodies.B.x;
-        const currentYB = bodies.B.y;
-
-        bodies.B.mass = newMassB;
-        bodies.B.actualRadius = CONSTANTS.MARS_RADIUS * (sliderValue / 6.39);
-        bodies.B.radius = calculateDisplayRadius(newMassB, bodies.B.actualRadius);
-
-        // 位置と速度は保持
-        bodies.B.x = currentXB;
-        bodies.B.y = currentYB;
-        bodies.B.vx = currentVxB;
-        bodies.B.vy = currentVyB;
-    } else {
-        // シミュレーション実行中は質量と半径を変更
-        bodies.B.mass = newMassB;
-        bodies.B.actualRadius = CONSTANTS.MARS_RADIUS * (sliderValue / 6.39);
-        bodies.B.radius = calculateDisplayRadius(newMassB, bodies.B.actualRadius);
-    }
-
-    elements.massBValue.textContent = (newMassB / 1e23).toFixed(2) + '×10²³';
-    updateParameters();
-});
-
 elements.speed.addEventListener('input', (e) => {
     state.speedMultiplier = parseFloat(e.target.value);
     elements.speedValue.textContent = e.target.value + 'x';
@@ -736,12 +731,8 @@ elements.resetBtn.addEventListener('click', () => {
     elements.startBtn.disabled = false;
     elements.stopBtn.disabled = true;
 
-    // 現在の質量を保存
-    const currentMassA = bodies.A.mass;
-    const currentMassB = bodies.B.mass;
-
-    // 初期状態を再生成
-    bodies = initializeBodies(currentMassA, currentMassB);
+    // 初期状態を再生成（固定質量）
+    bodies = initializeBodies(CONSTANTS.SUN_MASS, CONSTANTS.MARS_MASS);
 
     // 爆発エフェクトをリセット
     explosion.active = false;
