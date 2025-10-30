@@ -259,7 +259,7 @@ function drawForceVectors() {
     const softenedDistSq = distSq + state.softening * state.softening;
     const dist = Math.sqrt(softenedDistSq);
 
-    const forceScale = 0.2; // 表示用のスケール
+    const forceScale = 0.05; // 表示用のスケール
 
     // 火星（B）に働く力（太陽からの引力）
     const forceB = state.G * bodies.A.mass / softenedDistSq;
@@ -280,8 +280,10 @@ function drawDragArrow() {
     const posCurrent = toCanvas(state.currentMouse.x, state.currentMouse.y);
 
     // ドラッグした方向と逆向きの矢印を描画
-    const dx = posStart.x - posCurrent.x;
-    const dy = posStart.y - posCurrent.y;
+    // velocityScaleを適用して実際の速度と同じ長さで表示
+    const velocityScale = 5.0;
+    const dx = (posStart.x - posCurrent.x) * velocityScale;
+    const dy = (posStart.y - posCurrent.y) * velocityScale;
     const length = Math.sqrt(dx * dx + dy * dy);
 
     if (length < 5) return;
@@ -601,8 +603,10 @@ function handleDragEnd() {
         const body = bodies[state.dragging];
 
         // ドラッグした方向と逆向きに速度を直接設定
-        body.vx = -(state.currentMouse.x - state.dragStart.x);
-        body.vy = -(state.currentMouse.y - state.dragStart.y);
+        // 速度スケール係数を大きくして、より大きな初速度を設定可能に
+        const velocityScale = 5.0;
+        body.vx = -(state.currentMouse.x - state.dragStart.x) * velocityScale;
+        body.vy = -(state.currentMouse.y - state.dragStart.y) * velocityScale;
 
         updateParameters();
 
