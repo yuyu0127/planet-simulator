@@ -557,15 +557,13 @@ function handleDragStart(clientX, clientY) {
     const rect = canvas.getBoundingClientRect();
     const canvasX = clientX - rect.left;
     const canvasY = clientY - rect.top;
-    const simPos = toSimulation(canvasX, canvasY);
 
     // 火星（B）のみドラッグ可能
-    const distB = Math.sqrt((simPos.x - bodies.B.x) ** 2 + (simPos.y - bodies.B.y) ** 2);
+    // キャンバス座標で判定
+    const posB = toCanvas(bodies.B.x, bodies.B.y);
+    const distB = Math.sqrt((canvasX - posB.x) ** 2 + (canvasY - posB.y) ** 2);
 
-    // 表示用の半径で判定（クリックしやすくするため）
-    const radiusB = bodies.B.radius / (state.scale * state.displayScale);
-
-    if (distB < radiusB) {
+    if (distB < 100) {
         state.dragging = 'B';
         state.dragStart = { x: bodies.B.x, y: bodies.B.y };
         state.currentMouse = { x: bodies.B.x, y: bodies.B.y };
