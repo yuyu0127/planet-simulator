@@ -4,9 +4,7 @@ const ctx = canvas.getContext('2d');
 
 // UI要素
 const elements = {
-    posA: document.getElementById('pos-a'),
     posB: document.getElementById('pos-b'),
-    velA: document.getElementById('vel-a'),
     velB: document.getElementById('vel-b'),
     distance: document.getElementById('distance'),
     massA: document.getElementById('mass-a'),
@@ -68,20 +66,19 @@ function calculateRadius(mass) {
 
 // 惑星データを初期化する関数
 function initializeBodies(massA, massB) {
-    // 惑星Bを原点から3の位置に配置（150 / 50 = 3）
+    // 太陽（A）は原点に固定
+    // 火星（B）を原点から3の位置に配置
     const xB = 3;
-    // 重心が原点になるように惑星Aの位置を計算
-    const xA = -massB * xB / massA;
 
     return {
         A: {
             mass: massA,
-            x: xA,
+            x: 0,
             y: 0,
             vx: 0,
             vy: 0,
             radius: calculateRadius(massA),
-            color: '#FF5722',
+            color: '#FDB813', // 太陽の色（黄色）
             trail: [],
             active: true
         },
@@ -92,15 +89,15 @@ function initializeBodies(massA, massB) {
             vx: 0,
             vy: 0,
             radius: calculateRadius(massB),
-            color: '#2196F3',
+            color: '#CD5C5C', // 火星の色（赤系）
             trail: [],
             active: true
         }
     };
 }
 
-// 惑星データ（初期質量: A=50, B=50）
-let bodies = initializeBodies(50, 50);
+// 惑星データ（初期質量: 太陽=1000, 火星=1）
+let bodies = initializeBodies(1000, 1);
 
 // 爆発エフェクトの状態
 let explosion = {
@@ -221,8 +218,8 @@ function drawBody(body, label) {
     ctx.lineWidth = 2;
     ctx.stroke();
 
-    // ラベル
-    ctx.fillStyle = '#fff';
+    // ラベル（太陽の場合は黒文字、火星の場合は白文字）
+    ctx.fillStyle = label === '太陽' ? '#000' : '#fff';
     ctx.font = 'bold 16px Arial';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
@@ -234,7 +231,7 @@ function drawForceVectors() {
     if (!state.showForce) return;
     if (!bodies.A.active || !bodies.B.active) return;
 
-    // AがBから受ける力を計算（軟化パラメータ適用）
+    // 火星がBから受ける力を計算（軟化パラメータ適用）
     const dx = bodies.B.x - bodies.A.x;
     const dy = bodies.B.y - bodies.A.y;
     const distSq = dx * dx + dy * dy;
@@ -243,23 +240,14 @@ function drawForceVectors() {
 
     const forceScale = 0.2; // 表示用のスケール
 
-    // 惑星Aに働く力
-    const forceA = state.G * bodies.B.mass / softenedDistSq;
-    const posA = toCanvas(bodies.A.x, bodies.A.y);
-    const forceEndA = toCanvas(
-        bodies.A.x + (dx / dist) * forceA * forceScale,
-        bodies.A.y + (dy / dist) * forceA * forceScale
-    );
-    drawArrow(posA.x, posA.y, forceEndA.x, forceEndA.y, '#FF00FF', 'F', 'A');
-
-    // 惑星Bに働く力（反対方向）
+    // 火星（B）に働く力（太陽からの引力）
     const forceB = state.G * bodies.A.mass / softenedDistSq;
     const posB = toCanvas(bodies.B.x, bodies.B.y);
     const forceEndB = toCanvas(
         bodies.B.x - (dx / dist) * forceB * forceScale,
         bodies.B.y - (dy / dist) * forceB * forceScale
     );
-    drawArrow(posB.x, posB.y, forceEndB.x, forceEndB.y, '#FF00FF', 'F', 'B');
+    drawArrow(posB.x, posB.y, forceEndB.x, forceEndB.y, '#FF00FF', 'F', '');
 }
 
 // ドラッグ中の速度矢印表示
@@ -403,7 +391,7 @@ function drawExplosion() {
 
 // 描画メインループ
 function draw() {
-    // カメラは常にcanvasの中心（重心座標系の原点）
+    // カメラは常にcanvasの中心（太陽の位置＝原点）
     state.offsetX = canvas.width / 2;
     state.offsetY = canvas.height / 2;
 
@@ -411,17 +399,8 @@ function draw() {
     ctx.fillRect(0, 0, canvas.width, canvas.height);
 
     drawGrid();
-    drawBody(bodies.A, 'A');
-    drawBody(bodies.B, 'B');
-
-    // 重心を描画（常に原点 = canvas中心）
-    if (bodies.A.active && bodies.B.active) {
-        const cmPos = toCanvas(0, 0);
-        ctx.fillStyle = '#00BCD4';
-        ctx.beginPath();
-        ctx.arc(cmPos.x, cmPos.y, 5, 0, Math.PI * 2);
-        ctx.fill();
-    }
+    drawBody(bodies.A, '太陽');
+    drawBody(bodies.B, '火星');
 
     // 力ベクトル表示
     drawForceVectors();
@@ -458,41 +437,29 @@ function updatePhysics() {
 
     const dt = state.dt * state.speedMultiplier;
 
-    // 加速度計算
-    const accA = calculateAcceleration(bodies.A, bodies.B);
+    // 火星の加速度計算（太陽からの重力）
     const accB = calculateAcceleration(bodies.B, bodies.A);
 
-    // 速度更新（半ステップ）
-    bodies.A.vx += accA.ax * dt / 2;
-    bodies.A.vy += accA.ay * dt / 2;
+    // 火星の速度更新（半ステップ）
     bodies.B.vx += accB.ax * dt / 2;
     bodies.B.vy += accB.ay * dt / 2;
 
-    // 位置更新
-    bodies.A.x += bodies.A.vx * dt;
-    bodies.A.y += bodies.A.vy * dt;
+    // 火星の位置更新
     bodies.B.x += bodies.B.vx * dt;
     bodies.B.y += bodies.B.vy * dt;
 
     // 新しい加速度計算
-    const accA2 = calculateAcceleration(bodies.A, bodies.B);
     const accB2 = calculateAcceleration(bodies.B, bodies.A);
 
-    // 速度更新（残り半ステップ）
-    bodies.A.vx += accA2.ax * dt / 2;
-    bodies.A.vy += accA2.ay * dt / 2;
+    // 火星の速度更新（残り半ステップ）
     bodies.B.vx += accB2.ax * dt / 2;
     bodies.B.vy += accB2.ay * dt / 2;
 
-    // 重心を計算
-    const cmX = (bodies.A.mass * bodies.A.x + bodies.B.mass * bodies.B.x) / (bodies.A.mass + bodies.B.mass);
-    const cmY = (bodies.A.mass * bodies.A.y + bodies.B.mass * bodies.B.y) / (bodies.A.mass + bodies.B.mass);
-
-    // 重心を原点とする座標系に変換
-    bodies.A.x -= cmX;
-    bodies.A.y -= cmY;
-    bodies.B.x -= cmX;
-    bodies.B.y -= cmY;
+    // 太陽は完全に固定（位置も速度も更新しない）
+    // bodies.A.x = 0;
+    // bodies.A.y = 0;
+    // bodies.A.vx = 0;
+    // bodies.A.vy = 0;
 
     // 衝突判定（有効化されている場合のみ）
     if (state.enableCollision) {
@@ -525,9 +492,8 @@ function updatePhysics() {
         }
     }
 
-    // 軌道記録（重心座標系で記録）
+    // 軌道記録（火星のみ）
     if (state.showTrail) {
-        bodies.A.trail.push({ x: bodies.A.x, y: bodies.A.y });
         bodies.B.trail.push({ x: bodies.B.x, y: bodies.B.y });
     }
 }
@@ -538,14 +504,11 @@ function updateParameters() {
     const dy = bodies.B.y - bodies.A.y;
     const r = Math.sqrt(dx * dx + dy * dy);
 
-    const vA = Math.sqrt(bodies.A.vx ** 2 + bodies.A.vy ** 2);
     const vB = Math.sqrt(bodies.B.vx ** 2 + bodies.B.vy ** 2);
 
     elements.massADisplay.textContent = bodies.A.mass.toFixed(0);
-    elements.massBDisplay.textContent = bodies.B.mass.toFixed(0);
-    elements.posA.textContent = `(${bodies.A.x.toFixed(2)}, ${bodies.A.y.toFixed(2)})`;
+    elements.massBDisplay.textContent = bodies.B.mass.toFixed(1);
     elements.posB.textContent = `(${bodies.B.x.toFixed(2)}, ${bodies.B.y.toFixed(2)})`;
-    elements.velA.textContent = vA.toFixed(2);
     elements.velB.textContent = vB.toFixed(2);
     elements.distance.textContent = r.toFixed(2);
 }
@@ -567,29 +530,13 @@ function handleDragStart(clientX, clientY) {
     const canvasY = clientY - rect.top;
     const simPos = toSimulation(canvasX, canvasY);
 
-    // どちらの惑星をドラッグしているか判定（両方ドラッグ可能）
-    const distA = Math.sqrt((simPos.x - bodies.A.x) ** 2 + (simPos.y - bodies.A.y) ** 2);
+    // 火星（B）のみドラッグ可能
     const distB = Math.sqrt((simPos.x - bodies.B.x) ** 2 + (simPos.y - bodies.B.y) ** 2);
 
     // 半径はすでにシミュレーション座標系で保持されている
-    const radiusA = bodies.A.radius;
     const radiusB = bodies.B.radius;
 
-    if (distA < radiusA) {
-        state.dragging = 'A';
-        state.dragStart = { x: bodies.A.x, y: bodies.A.y };
-        state.currentMouse = { x: bodies.A.x, y: bodies.A.y };
-
-        // シミュレーションを一時停止
-        if (state.running) {
-            state.wasRunning = true;
-            state.running = false;
-            elements.startBtn.disabled = false;
-            elements.stopBtn.disabled = true;
-        } else {
-            state.wasRunning = false;
-        }
-    } else if (distB < radiusB) {
+    if (distB < radiusB) {
         state.dragging = 'B';
         state.dragStart = { x: bodies.B.x, y: bodies.B.y };
         state.currentMouse = { x: bodies.B.x, y: bodies.B.y };
@@ -688,27 +635,15 @@ canvas.addEventListener('touchcancel', (e) => {
 // UI イベント
 elements.massA.addEventListener('input', (e) => {
     const sliderValue = parseFloat(e.target.value);
-    const newMassA = sliderToMass(sliderValue);
+    const newMassA = sliderValue;
 
-    // 質量変更時は重心を維持するために位置を再計算
-    if (!state.running) {
-        const currentVxA = bodies.A.vx;
-        const currentVyA = bodies.A.vy;
-        const currentVxB = bodies.B.vx;
-        const currentVyB = bodies.B.vy;
-
-        bodies = initializeBodies(newMassA, bodies.B.mass);
-
-        // 速度は保持
-        bodies.A.vx = currentVxA;
-        bodies.A.vy = currentVyA;
-        bodies.B.vx = currentVxB;
-        bodies.B.vy = currentVyB;
-    } else {
-        // シミュレーション実行中は質量と半径を変更（位置は物理演算で補正される）
-        bodies.A.mass = newMassA;
-        bodies.A.radius = calculateRadius(newMassA);
-    }
+    // 太陽の質量と半径のみ変更（位置は常に原点）
+    bodies.A.mass = newMassA;
+    bodies.A.radius = calculateRadius(newMassA);
+    bodies.A.x = 0;
+    bodies.A.y = 0;
+    bodies.A.vx = 0;
+    bodies.A.vy = 0;
 
     elements.massAValue.textContent = newMassA.toFixed(0);
     updateParameters();
@@ -716,29 +651,30 @@ elements.massA.addEventListener('input', (e) => {
 
 elements.massB.addEventListener('input', (e) => {
     const sliderValue = parseFloat(e.target.value);
-    const newMassB = sliderToMass(sliderValue);
+    const newMassB = sliderValue;
 
-    // 質量変更時は重心を維持するために位置を再計算
+    // 質量変更時、位置と速度は保持
     if (!state.running) {
-        const currentVxA = bodies.A.vx;
-        const currentVyA = bodies.A.vy;
         const currentVxB = bodies.B.vx;
         const currentVyB = bodies.B.vy;
+        const currentXB = bodies.B.x;
+        const currentYB = bodies.B.y;
 
-        bodies = initializeBodies(bodies.A.mass, newMassB);
+        bodies.B.mass = newMassB;
+        bodies.B.radius = calculateRadius(newMassB);
 
-        // 速度は保持
-        bodies.A.vx = currentVxA;
-        bodies.A.vy = currentVyA;
+        // 位置と速度は保持
+        bodies.B.x = currentXB;
+        bodies.B.y = currentYB;
         bodies.B.vx = currentVxB;
         bodies.B.vy = currentVyB;
     } else {
-        // シミュレーション実行中は質量と半径を変更（位置は物理演算で補正される）
+        // シミュレーション実行中は質量と半径を変更
         bodies.B.mass = newMassB;
         bodies.B.radius = calculateRadius(newMassB);
     }
 
-    elements.massBValue.textContent = newMassB.toFixed(0);
+    elements.massBValue.textContent = newMassB.toFixed(1);
     updateParameters();
 });
 
@@ -769,7 +705,7 @@ elements.resetBtn.addEventListener('click', () => {
     const currentMassA = bodies.A.mass;
     const currentMassB = bodies.B.mass;
 
-    // 現在の質量で重心原点の初期状態を再生成（半径は自動計算）
+    // 初期状態を再生成
     bodies = initializeBodies(currentMassA, currentMassB);
 
     // 爆発エフェクトをリセット
@@ -782,7 +718,6 @@ elements.resetBtn.addEventListener('click', () => {
 elements.showTrail.addEventListener('change', (e) => {
     state.showTrail = e.target.checked;
     if (!state.showTrail) {
-        bodies.A.trail = [];
         bodies.B.trail = [];
     }
 });
