@@ -521,6 +521,23 @@ function updatePhysics() {
     }
 }
 
+// 科学的記法のフォーマット（2e11 → 2×10¹¹）
+function formatScientific(value, precision = 2) {
+    const exp = value.toExponential(precision);
+    const [mantissa, exponent] = exp.split('e');
+    const expNum = parseInt(exponent);
+
+    // 上付き文字に変換
+    const superscript = {
+        '0': '⁰', '1': '¹', '2': '²', '3': '³', '4': '⁴',
+        '5': '⁵', '6': '⁶', '7': '⁷', '8': '⁸', '9': '⁹',
+        '-': '⁻', '+': '⁺'
+    };
+
+    const expStr = expNum.toString().split('').map(c => superscript[c] || c).join('');
+    return `${mantissa}×10${expStr}`;
+}
+
 // 軌道要素を計算
 function calculateOrbitalElements() {
     const dx = bodies.B.x - bodies.A.x;
@@ -571,19 +588,25 @@ function updateParameters() {
     // 経過時間を表示
     elements.time.textContent = state.elapsedTime.toFixed(3) + ' 年';
 
-    // 位置を m 単位で表示（科学的記法）
-    elements.posB.textContent = `(${bodies.B.x.toExponential(3)}, ${bodies.B.y.toExponential(3)}) m`;
+    // 位置を km 単位で表示（科学的記法）
+    const xKm = bodies.B.x / 1000;
+    const yKm = bodies.B.y / 1000;
+    elements.posB.textContent = `(${formatScientific(xKm, 3)}, ${formatScientific(yKm, 3)}) km`;
 
-    // 速度を m/年 単位で表示
-    elements.velB.textContent = orbital.v.toExponential(3) + ' m/年';
+    // 速度を km/s 単位で表示（m/年 → m/s → km/s）
+    const vKmPerSec = orbital.v / 31557600 / 1000; // 1年 = 31,557,600秒
+    elements.velB.textContent = formatScientific(vKmPerSec, 3) + ' km/s';
 
-    // 距離を m 単位で表示
-    elements.distance.textContent = orbital.r.toExponential(3) + ' m';
+    // 距離を km 単位で表示
+    const rKm = orbital.r / 1000;
+    elements.distance.textContent = formatScientific(rKm, 3) + ' km';
 
     // 軌道パラメータ
     elements.period.textContent = orbital.T.toFixed(3) + ' 年';
-    elements.semiMajor.textContent = orbital.a.toExponential(3) + ' m';
-    elements.semiMinor.textContent = orbital.b.toExponential(3) + ' m';
+    const aKm = orbital.a / 1000;
+    const bKm = orbital.b / 1000;
+    elements.semiMajor.textContent = formatScientific(aKm, 3) + ' km';
+    elements.semiMinor.textContent = formatScientific(bKm, 3) + ' km';
     elements.eccentricity.textContent = orbital.e.toFixed(4);
     elements.angle.textContent = orbital.theta.toFixed(2) + '°';
     elements.sinAngle.textContent = orbital.sinTheta.toFixed(4);
