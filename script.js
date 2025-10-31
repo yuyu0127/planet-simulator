@@ -450,7 +450,7 @@ function calculateAcceleration(body1, body2) {
     return { ax, ay };
 }
 
-// 物理シミュレーション（Velocity Verlet法）
+// 物理シミュレーション（4次のルンゲ・クッタ法）
 function updatePhysics() {
     // 両方の惑星がアクティブでない場合は更新しない
     if (!bodies.A.active || !bodies.B.active) return;
@@ -460,23 +460,65 @@ function updatePhysics() {
     // 経過時間を更新
     state.elapsedTime += dt;
 
-    // 火星の加速度計算（太陽からの重力）
-    const accB = calculateAcceleration(bodies.B, bodies.A);
+    // 現在の状態を保存
+    const x0 = bodies.B.x;
+    const y0 = bodies.B.y;
+    const vx0 = bodies.B.vx;
+    const vy0 = bodies.B.vy;
 
-    // 火星の速度更新（半ステップ）
-    bodies.B.vx += accB.ax * dt / 2;
-    bodies.B.vy += accB.ay * dt / 2;
+    // k1: 現在の状態での導関数
+    const acc1 = calculateAcceleration(bodies.B, bodies.A);
+    const k1 = {
+        x: vx0,
+        y: vy0,
+        vx: acc1.ax,
+        vy: acc1.ay
+    };
 
-    // 火星の位置更新
-    bodies.B.x += bodies.B.vx * dt;
-    bodies.B.y += bodies.B.vy * dt;
+    // k2: dt/2 進めた状態での導関数
+    bodies.B.x = x0 + k1.x * dt / 2;
+    bodies.B.y = y0 + k1.y * dt / 2;
+    bodies.B.vx = vx0 + k1.vx * dt / 2;
+    bodies.B.vy = vy0 + k1.vy * dt / 2;
+    const acc2 = calculateAcceleration(bodies.B, bodies.A);
+    const k2 = {
+        x: bodies.B.vx,
+        y: bodies.B.vy,
+        vx: acc2.ax,
+        vy: acc2.ay
+    };
 
-    // 新しい加速度計算
-    const accB2 = calculateAcceleration(bodies.B, bodies.A);
+    // k3: dt/2 進めた状態（k2を使用）での導関数
+    bodies.B.x = x0 + k2.x * dt / 2;
+    bodies.B.y = y0 + k2.y * dt / 2;
+    bodies.B.vx = vx0 + k2.vx * dt / 2;
+    bodies.B.vy = vy0 + k2.vy * dt / 2;
+    const acc3 = calculateAcceleration(bodies.B, bodies.A);
+    const k3 = {
+        x: bodies.B.vx,
+        y: bodies.B.vy,
+        vx: acc3.ax,
+        vy: acc3.ay
+    };
 
-    // 火星の速度更新（残り半ステップ）
-    bodies.B.vx += accB2.ax * dt / 2;
-    bodies.B.vy += accB2.ay * dt / 2;
+    // k4: dt 進めた状態（k3を使用）での導関数
+    bodies.B.x = x0 + k3.x * dt;
+    bodies.B.y = y0 + k3.y * dt;
+    bodies.B.vx = vx0 + k3.vx * dt;
+    bodies.B.vy = vy0 + k3.vy * dt;
+    const acc4 = calculateAcceleration(bodies.B, bodies.A);
+    const k4 = {
+        x: bodies.B.vx,
+        y: bodies.B.vy,
+        vx: acc4.ax,
+        vy: acc4.ay
+    };
+
+    // 最終的な更新（加重平均）
+    bodies.B.x = x0 + (k1.x + 2 * k2.x + 2 * k3.x + k4.x) * dt / 6;
+    bodies.B.y = y0 + (k1.y + 2 * k2.y + 2 * k3.y + k4.y) * dt / 6;
+    bodies.B.vx = vx0 + (k1.vx + 2 * k2.vx + 2 * k3.vx + k4.vx) * dt / 6;
+    bodies.B.vy = vy0 + (k1.vy + 2 * k2.vy + 2 * k3.vy + k4.vy) * dt / 6;
 
     // 太陽は完全に固定（位置も速度も更新しない）
     // bodies.A.x = 0;
