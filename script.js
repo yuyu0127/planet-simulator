@@ -995,8 +995,14 @@ function resetSimulation() {
     elements.startBtn.disabled = false;
     elements.stopBtn.disabled = true;
 
+    // 軌道を保存
+    const savedTrail = bodies.B.trail;
+
     // 初期状態を再生成
     bodies = initializeBodies(currentMassA, currentMassB, currentDistance, currentVelocity, currentPlanetRadius);
+
+    // 軌道を復元
+    bodies.B.trail = savedTrail;
 
     // 軌道要素を初期条件から計算
     calculateOrbitalElementsFromState(bodies.B.x, bodies.B.y, bodies.B.vx, bodies.B.vy, 0);
@@ -1047,8 +1053,6 @@ elements.stopBtn.addEventListener('click', () => {
 });
 
 elements.resetBtn.addEventListener('click', () => {
-    // 軌道をクリア
-    bodies.B.trail = [];
     resetSimulation();
 });
 
