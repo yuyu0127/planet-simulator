@@ -69,6 +69,7 @@ let state = {
 // 質量から表示用半径を計算
 // 実際の半径は軌道に比べて小さすぎるため、表示用に拡大
 function calculateDisplayRadius(mass, actualRadius) {
+    /*
     // 実際の半径を使用し、表示可能なサイズにスケーリング
     // 太陽: 基準サイズ、火星: 太陽との比率を維持しつつ見やすく
     if (mass > 1e29) {
@@ -78,6 +79,10 @@ function calculateDisplayRadius(mass, actualRadius) {
         // 火星
         return actualRadius * state.displayScale * 50; // さらに拡大して表示
     }
+    */
+
+    // そのまま実際の半径を使用
+    return actualRadius * state.displayScale;
 }
 
 // 惑星データを初期化する関数
