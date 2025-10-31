@@ -945,14 +945,12 @@ function updateParameters() {
         elements.eccentricity.textContent = orbital.e.toFixed(4) + ' (楕円)';
     } else if (orbit.type === 'hyperbola') {
         elements.period.textContent = '∞ (脱出軌道)';
-        const aKm = Math.abs(orbital.a) / 1000;
-        elements.semiMajor.textContent = formatJapanese(aKm, 4) + ' km (双曲)';
+        elements.semiMajor.textContent = '—';
         elements.semiMinor.textContent = '—';
         elements.eccentricity.textContent = orbital.e.toFixed(4) + ' (双曲線)';
     } else {
         elements.period.textContent = '∞ (脱出軌道)';
-        const pKm = Math.abs(orbital.a) / 1000;
-        elements.semiMajor.textContent = formatJapanese(pKm, 4) + ' km (放物)';
+        elements.semiMajor.textContent = '—';
         elements.semiMinor.textContent = '—';
         elements.eccentricity.textContent = orbital.e.toFixed(4) + ' (放物線)';
     }
