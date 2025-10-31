@@ -920,6 +920,12 @@ window.addEventListener('load', () => {
     // 初期軌道要素を計算
     calculateOrbitalElementsFromState(bodies.B.x, bodies.B.y, bodies.B.vx, bodies.B.vy, 0);
     updateParameters();
+
+    // 初期表示の更新
+    elements.massBValue.textContent = formatJapanese(currentMassB, 4) + ' kg';
+    elements.initialDistanceValue.textContent = formatJapanese(currentDistance / 1000, 3) + ' km';
+    elements.initialVelocityValue.textContent = velocityValueToSlider(currentVelocity).toFixed(1) + ' km/s';
+
     animate();
 });
 
