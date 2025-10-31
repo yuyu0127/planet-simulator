@@ -134,7 +134,7 @@ function calculateDisplayRadius(actualRadius) {
 }
 
 // 惑星データを初期化する関数
-function initializeBodies(massA, massB, initialDistance, initialVelocity, planetRadius) {
+function initializeBodies(massA, massB, initialDistance, initialVelocity, planetRadius, preserveTrail = false, existingTrail = []) {
     // 太陽（A）は原点に固定
     // 惑星（B）を指定された距離に配置
     const xB = initialDistance !== undefined ? initialDistance : CONSTANTS.EARTH_PERIHELION; // [m]
@@ -172,7 +172,7 @@ function initializeBodies(massA, massB, initialDistance, initialVelocity, planet
             actualRadius: bodyRadius,
             radius: calculateDisplayRadius(bodyRadius),
             color: '#CD5C5C', // 惑星の色（赤系）
-            trail: [],
+            trail: preserveTrail ? existingTrail : [[]],  // 二重配列: [[軌道1], [軌道2], ...]
             active: true
         }
     };
@@ -228,6 +228,30 @@ function toSimulation(x, y) {
         x: (x - state.offsetX) / (state.scale * state.displayScale),
         y: -(y - state.offsetY) / (state.scale * state.displayScale)
     };
+}
+
+// HSVからRGBへの変換（h: 0-360, s: 0-1, v: 0-1）
+function hsvToRgb(h, s, v) {
+    const c = v * s;
+    const x = c * (1 - Math.abs((h / 60) % 2 - 1));
+    const m = v - c;
+
+    let r, g, b;
+    if (h >= 0 && h < 60) {
+        [r, g, b] = [c, x, 0];
+    } else if (h >= 60 && h < 120) {
+        [r, g, b] = [x, c, 0];
+    } else if (h >= 120 && h < 180) {
+        [r, g, b] = [0, c, x];
+    } else if (h >= 180 && h < 240) {
+        [r, g, b] = [0, x, c];
+    } else if (h >= 240 && h < 300) {
+        [r, g, b] = [x, 0, c];
+    } else {
+        [r, g, b] = [c, 0, x];
+    }
+
+    return `rgb(${Math.round((r + m) * 255)}, ${Math.round((g + m) * 255)}, ${Math.round((b + m) * 255)})`;
 }
 
 // グリッド描画
@@ -286,19 +310,30 @@ function drawBody(body) {
 
     const pos = toCanvas(body.x, body.y);
 
-    // 軌道描画
-    if (state.showTrail && body.trail.length > 1) {
-        ctx.strokeStyle = body.color;
+    // 軌道描画（二重配列対応、HSVで色分け）
+    if (state.showTrail && body.trail.length > 0) {
         ctx.lineWidth = 2;
-        ctx.globalAlpha = 0.5;
-        ctx.beginPath();
-        const firstPoint = toCanvas(body.trail[0].x, body.trail[0].y);
-        ctx.moveTo(firstPoint.x, firstPoint.y);
-        for (let i = 1; i < body.trail.length; i++) {
-            const point = toCanvas(body.trail[i].x, body.trail[i].y);
-            ctx.lineTo(point.x, point.y);
+        ctx.globalAlpha = 0.7;
+
+        // すべての軌道セグメントを描画
+        for (let segmentIndex = 0; segmentIndex < body.trail.length; segmentIndex++) {
+            const segment = body.trail[segmentIndex];
+            if (segment.length > 1) {
+                // セグメントごとに色相を変更（0-360度）
+                const hue = (segmentIndex * 360 / Math.max(body.trail.length, 10)) % 360;
+                ctx.strokeStyle = hsvToRgb(hue, 0.8, 0.95);
+
+                ctx.beginPath();
+                const firstPoint = toCanvas(segment[0].x, segment[0].y);
+                ctx.moveTo(firstPoint.x, firstPoint.y);
+                for (let i = 1; i < segment.length; i++) {
+                    const point = toCanvas(segment[i].x, segment[i].y);
+                    ctx.lineTo(point.x, point.y);
+                }
+                ctx.stroke();
+            }
         }
-        ctx.stroke();
+
         ctx.globalAlpha = 1;
     }
 
@@ -773,9 +808,10 @@ function updatePhysics() {
         }
     }
 
-    // 軌道記録（火星のみ）
-    if (state.showTrail) {
-        bodies.B.trail.push({ x: bodies.B.x, y: bodies.B.y });
+    // 軌道記録（惑星のみ、最後のセグメントに追加）
+    if (state.showTrail && bodies.B.trail.length > 0) {
+        const currentSegment = bodies.B.trail[bodies.B.trail.length - 1];
+        currentSegment.push({ x: bodies.B.x, y: bodies.B.y });
     }
 }
 
@@ -995,14 +1031,15 @@ function resetSimulation() {
     elements.startBtn.disabled = false;
     elements.stopBtn.disabled = true;
 
-    // 軌道を保存
+    // 軌道を保存し、新しいセグメントを追加
     const savedTrail = bodies.B.trail;
+    // 現在のセグメントが空でなければ、新しいセグメントを開始
+    if (savedTrail.length > 0 && savedTrail[savedTrail.length - 1].length > 0) {
+        savedTrail.push([]);  // 新しい空のセグメントを追加
+    }
 
     // 初期状態を再生成
-    bodies = initializeBodies(currentMassA, currentMassB, currentDistance, currentVelocity, currentPlanetRadius);
-
-    // 軌道を復元
-    bodies.B.trail = savedTrail;
+    bodies = initializeBodies(currentMassA, currentMassB, currentDistance, currentVelocity, currentPlanetRadius, true, savedTrail);
 
     // 軌道要素を初期条件から計算
     calculateOrbitalElementsFromState(bodies.B.x, bodies.B.y, bodies.B.vx, bodies.B.vy, 0);
@@ -1057,14 +1094,14 @@ elements.resetBtn.addEventListener('click', () => {
 });
 
 elements.clearTrailBtn.addEventListener('click', () => {
-    // 軌道のみをクリア
-    bodies.B.trail = [];
+    // すべての軌道をクリアし、新しいセグメントを開始
+    bodies.B.trail = [[]];
 });
 
 elements.showTrail.addEventListener('change', (e) => {
     state.showTrail = e.target.checked;
     if (!state.showTrail) {
-        bodies.B.trail = [];
+        bodies.B.trail = [[]];
     }
 });
 
