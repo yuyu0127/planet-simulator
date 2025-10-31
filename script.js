@@ -325,10 +325,12 @@ function drawForceVectors() {
     const distSq = dx * dx + dy * dy;
     const dist = Math.sqrt(distSq);
 
-    const forceScale = 0.01; // 表示用のスケール
+    // 表示用のスケール（質量に応じて調整）
+    // 質量が大きいほど力も大きくなるので、適切に表示するためのスケーリング
+    const forceScale = 0.01 / Math.sqrt(bodies.B.mass / CONSTANTS.MARS_MASS);
 
-    // 惑星（B）に働く力（太陽からの引力）F = GMm/r^2
-    const forceB = state.G * bodies.A.mass / distSq;
+    // 惑星（B）に働く力（太陽からの引力）F = G*M*m/r^2
+    const forceB = state.G * bodies.A.mass * bodies.B.mass / distSq;
     const posB = toCanvas(bodies.B.x, bodies.B.y);
     const forceEndB = toCanvas(
         bodies.B.x - (dx / dist) * forceB * forceScale,
