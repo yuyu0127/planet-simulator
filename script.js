@@ -41,13 +41,13 @@ const elements = {
 const CONSTANTS = {
     G: 6.644e4, // 重力定数 [m³/(kg·年²)]
     SUN_MASS: 1.989e30, // 太陽の質量 [kg]
-    MARS_MASS: 6.39e23, // 惑星の質量 [kg]（デフォルト値：火星）
+    EARTH_MASS: 5.972e24, // 惑星の質量 [kg]（デフォルト値：地球）
     AU: 1.496e11, // 天文単位 [m]
     SUN_RADIUS: 6.96e8, // 太陽の半径 [m]
-    MARS_RADIUS: 3.39e6, // 惑星の半径 [m]（デフォルト値：火星）
-    MARS_ORBIT: 2.279e11, // 軌道長半径 [m]（デフォルト値：火星）
-    MARS_PERIHELION: 2.066e11, // 近日点距離 [m]（デフォルト値：火星）
-    MARS_ECCENTRICITY: 0.0934 // 軌道離心率（デフォルト値：火星）
+    EARTH_RADIUS: 6.371e6, // 惑星の半径 [m]（デフォルト値：地球）
+    EARTH_ORBIT: 1.496e11, // 軌道長半径 [m]（デフォルト値：地球）
+    EARTH_PERIHELION: 1.471e11, // 近日点距離 [m]（デフォルト値：地球）
+    EARTH_ECCENTRICITY: 0.0167 // 軌道離心率（デフォルト値：地球）
 };
 
 // 太陽系惑星のプリセットデータ（最遠点での位置と速度）
@@ -137,18 +137,18 @@ function calculateDisplayRadius(actualRadius) {
 function initializeBodies(massA, massB, initialDistance, initialVelocity, planetRadius) {
     // 太陽（A）は原点に固定
     // 惑星（B）を指定された距離に配置
-    const xB = initialDistance !== undefined ? initialDistance : CONSTANTS.MARS_PERIHELION; // [m]
+    const xB = initialDistance !== undefined ? initialDistance : CONSTANTS.EARTH_PERIHELION; // [m]
 
     // 初速度が指定されていない場合は、近日点での速度を計算（垂直方向）
     // v_p = sqrt(G * (M_sun + m) * (1 + e) / (a * (1 - e)))
     // 換算質量を使用
-    const a = CONSTANTS.MARS_ORBIT;
-    const e = CONSTANTS.MARS_ECCENTRICITY;
+    const a = CONSTANTS.EARTH_ORBIT;
+    const e = CONSTANTS.EARTH_ECCENTRICITY;
     const mu = CONSTANTS.G * (massA + massB);
     const defaultVelocity = Math.sqrt(mu * (1 + e) / (a * (1 - e)));
     const vyB = initialVelocity !== undefined ? initialVelocity : defaultVelocity;
 
-    const bodyRadius = planetRadius !== undefined ? planetRadius : CONSTANTS.MARS_RADIUS;
+    const bodyRadius = planetRadius !== undefined ? planetRadius : CONSTANTS.EARTH_RADIUS;
 
     return {
         A: {
@@ -179,7 +179,7 @@ function initializeBodies(massA, massB, initialDistance, initialVelocity, planet
 }
 
 // 惑星データ（実際の質量）
-let bodies = initializeBodies(CONSTANTS.SUN_MASS, CONSTANTS.MARS_MASS);
+let bodies = initializeBodies(CONSTANTS.SUN_MASS, CONSTANTS.EARTH_MASS);
 
 // 軌道要素（解析解用）
 let orbit = {
@@ -965,12 +965,12 @@ function animate() {
 
 // 現在のスライダー値を保持する変数（太陽の質量は固定）
 const currentMassA = CONSTANTS.SUN_MASS;
-let currentMassB = CONSTANTS.MARS_MASS;
-let currentDistance = CONSTANTS.MARS_PERIHELION; // [m]
-// 火星の近日点速度を計算 v_p = sqrt(G * M_sun * (1 + e) / (a * (1 - e)))
-const marsInitialVelocity = Math.sqrt(CONSTANTS.G * CONSTANTS.SUN_MASS * (1 + CONSTANTS.MARS_ECCENTRICITY) / (CONSTANTS.MARS_ORBIT * (1 - CONSTANTS.MARS_ECCENTRICITY)));
-let currentVelocity = marsInitialVelocity; // [m/年]
-let currentPlanetRadius = CONSTANTS.MARS_RADIUS;
+let currentMassB = CONSTANTS.EARTH_MASS;
+let currentDistance = CONSTANTS.EARTH_PERIHELION; // [m]
+// 地球の近日点速度を計算 v_p = sqrt(G * M_sun * (1 + e) / (a * (1 - e)))
+const earthInitialVelocity = Math.sqrt(CONSTANTS.G * CONSTANTS.SUN_MASS * (1 + CONSTANTS.EARTH_ECCENTRICITY) / (CONSTANTS.EARTH_ORBIT * (1 - CONSTANTS.EARTH_ECCENTRICITY)));
+let currentVelocity = earthInitialVelocity; // [m/年]
+let currentPlanetRadius = CONSTANTS.EARTH_RADIUS;
 
 // 質量スライダーの値を実際の質量に変換
 function massSliderToValue(sliderValue) {
