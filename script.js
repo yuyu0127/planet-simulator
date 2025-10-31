@@ -137,15 +137,16 @@ function calculateDisplayRadius(actualRadius) {
 function initializeBodies(massA, massB, initialDistance, initialVelocity, planetRadius, preserveTrail = false, existingTrail = []) {
     // 太陽（A）は原点に固定
     // 惑星（B）を指定された距離に配置
-    const xB = initialDistance !== undefined ? initialDistance : CONSTANTS.EARTH_PERIHELION; // [m]
+    const earthAphelion = CONSTANTS.EARTH_ORBIT * (1 + CONSTANTS.EARTH_ECCENTRICITY);
+    const xB = initialDistance !== undefined ? initialDistance : earthAphelion; // [m]
 
-    // 初速度が指定されていない場合は、近日点での速度を計算（垂直方向）
-    // v_p = sqrt(G * (M_sun + m) * (1 + e) / (a * (1 - e)))
+    // 初速度が指定されていない場合は、遠日点での速度を計算（垂直方向）
+    // v_a = sqrt(G * (M_sun + m) * (1 - e) / (a * (1 + e)))
     // 換算質量を使用
     const a = CONSTANTS.EARTH_ORBIT;
     const e = CONSTANTS.EARTH_ECCENTRICITY;
     const mu = CONSTANTS.G * (massA + massB);
-    const defaultVelocity = Math.sqrt(mu * (1 + e) / (a * (1 - e)));
+    const defaultVelocity = Math.sqrt(mu * (1 - e) / (a * (1 + e)));
     const vyB = initialVelocity !== undefined ? initialVelocity : defaultVelocity;
 
     const bodyRadius = planetRadius !== undefined ? planetRadius : CONSTANTS.EARTH_RADIUS;
@@ -985,10 +986,14 @@ function animate() {
 // 現在のスライダー値を保持する変数（太陽の質量は固定）
 const currentMassA = CONSTANTS.SUN_MASS;
 let currentMassB = CONSTANTS.EARTH_MASS;
-let currentDistance = CONSTANTS.EARTH_PERIHELION; // [m]
-// 地球の近日点速度を計算 v_p = sqrt(G * M_sun * (1 + e) / (a * (1 - e)))
-const earthInitialVelocity = Math.sqrt(CONSTANTS.G * CONSTANTS.SUN_MASS * (1 + CONSTANTS.EARTH_ECCENTRICITY) / (CONSTANTS.EARTH_ORBIT * (1 - CONSTANTS.EARTH_ECCENTRICITY)));
-let currentVelocity = earthInitialVelocity; // [m/年]
+
+// 地球の遠日点を初期設定として使用
+const EARTH_APHELION = CONSTANTS.EARTH_ORBIT * (1 + CONSTANTS.EARTH_ECCENTRICITY); // [m]
+let currentDistance = EARTH_APHELION; // [m]
+
+// 地球の遠日点速度を計算 v_a = sqrt(G * M_sun * (1 - e) / (a * (1 + e)))
+const earthAphelionVelocity = Math.sqrt(CONSTANTS.G * CONSTANTS.SUN_MASS * (1 - CONSTANTS.EARTH_ECCENTRICITY) / (CONSTANTS.EARTH_ORBIT * (1 + CONSTANTS.EARTH_ECCENTRICITY)));
+let currentVelocity = earthAphelionVelocity; // [m/年]
 let currentPlanetRadius = CONSTANTS.EARTH_RADIUS;
 
 // 質量スライダーの値を実際の質量に変換
