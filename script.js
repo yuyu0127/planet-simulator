@@ -779,79 +779,25 @@ function updatePhysics() {
     }
 }
 
-// 日本語単位でのフォーマット（2e8 → 2億）
-function formatJapanese(value, precision = 3) {
+// 値を指数表記でフォーマット
+function formatValue(value, precision = 3) {
     if (value === 0) return '0';
 
     const absValue = Math.abs(value);
-    const sign = value < 0 ? '-' : '';
 
-    // 日本語の単位（4桁ごと）
-    const units = [
-        { threshold: 1e32, name: '溝' },
-        { threshold: 1e28, name: '穣' },
-        { threshold: 1e24, name: '秭' },
-        { threshold: 1e20, name: '垓' },
-        { threshold: 1e16, name: '京' },
-        { threshold: 1e12, name: '兆' },
-        { threshold: 1e8, name: '億' },
-        { threshold: 1e4, name: '万' }
-    ];
+    // 指数表記で表示
+    const exp = value.toExponential(precision - 1);
+    const [mantissa, exponent] = exp.split('e');
+    const expNum = parseInt(exponent);
 
-    for (const unit of units) {
-        if (absValue >= unit.threshold) {
-            const quotient = absValue / unit.threshold;
-            // quotientを適切にフォーマット（科学的記法を避ける）
-            let formattedQuotient;
-            if (quotient >= 1000) {
-                // 1000以上の場合は整数部分のみ
-                formattedQuotient = Math.round(quotient).toString();
-            } else if (quotient >= 100) {
-                // 100-999の場合は小数点以下1桁
-                formattedQuotient = quotient.toFixed(1);
-            } else if (quotient >= 10) {
-                // 10-99の場合は小数点以下2桁
-                formattedQuotient = quotient.toFixed(2);
-            } else {
-                // 1-9の場合は小数点以下3桁
-                formattedQuotient = quotient.toFixed(3);
-            }
-            // 末尾の不要な0を削除
-            formattedQuotient = formattedQuotient.replace(/\.?0+$/, '');
-            return `${sign}${formattedQuotient}${unit.name}`;
-        }
-    }
+    const superscript = {
+        '0': '⁰', '1': '¹', '2': '²', '3': '³', '4': '⁴',
+        '5': '⁵', '6': '⁶', '7': '⁷', '8': '⁸', '9': '⁹',
+        '-': '⁻', '+': '⁺'
+    };
 
-    // 1万未満の場合
-    if (absValue >= 1) {
-        // 整数または小数を適切にフォーマット
-        let formatted;
-        if (absValue >= 1000) {
-            formatted = Math.round(absValue).toString();
-        } else if (absValue >= 100) {
-            formatted = absValue.toFixed(1);
-        } else if (absValue >= 10) {
-            formatted = absValue.toFixed(2);
-        } else {
-            formatted = absValue.toFixed(3);
-        }
-        formatted = formatted.replace(/\.?0+$/, '');
-        return `${sign}${formatted}`;
-    } else {
-        // 小数の場合は科学的記法
-        const exp = value.toExponential(precision - 1);
-        const [mantissa, exponent] = exp.split('e');
-        const expNum = parseInt(exponent);
-
-        const superscript = {
-            '0': '⁰', '1': '¹', '2': '²', '3': '³', '4': '⁴',
-            '5': '⁵', '6': '⁶', '7': '⁷', '8': '⁸', '9': '⁹',
-            '-': '⁻', '+': '⁺'
-        };
-
-        const expStr = expNum.toString().split('').map(c => superscript[c] || c).join('');
-        return `${mantissa}×10${expStr}`;
-    }
+    const expStr = expNum.toString().split('').map(c => superscript[c] || c).join('');
+    return `${mantissa}×10${expStr}`;
 }
 
 // 軌道要素を計算
@@ -905,44 +851,44 @@ function calculateOrbitalElements() {
 function updateParameters() {
     const orbital = calculateOrbitalElements();
 
-    // 質量を日本語単位で表示
-    elements.massADisplay.textContent = formatJapanese(bodies.A.mass, 4) + ' kg';
-    elements.massBDisplay.textContent = formatJapanese(bodies.B.mass, 4) + ' kg';
+    // 質量を指数表記で表示
+    elements.massADisplay.textContent = formatValue(bodies.A.mass, 4) + ' kg';
+    elements.massBDisplay.textContent = formatValue(bodies.B.mass, 4) + ' kg';
 
     // 経過時間を表示
     elements.time.textContent = state.elapsedTime.toFixed(3) + ' 年';
 
-    // 位置を km 単位で表示（日本語単位）
+    // 位置を km 単位で表示（指数表記）
     const xKm = bodies.B.x / 1000;
     const yKm = bodies.B.y / 1000;
-    elements.posB.textContent = `(${formatJapanese(xKm, 4)}, ${formatJapanese(yKm, 4)}) km`;
+    elements.posB.textContent = `(${formatValue(xKm, 4)}, ${formatValue(yKm, 4)}) km`;
 
     // 速度を km/s 単位で表示（m/年 → m/s → km/s）
     const vKmPerSec = orbital.v / 31557600 / 1000; // 1年 = 31,557,600秒
-    elements.velB.textContent = formatJapanese(vKmPerSec, 4) + ' km/s';
+    elements.velB.textContent = formatValue(vKmPerSec, 4) + ' km/s';
 
     // 距離を km 単位で表示
     const rKm = orbital.r / 1000;
-    elements.distance.textContent = formatJapanese(rKm, 4) + ' km';
+    elements.distance.textContent = formatValue(rKm, 4) + ' km';
 
     // 軌道パラメータ（軌道タイプに応じて表示）
     if (orbit.type === 'ellipse') {
         elements.period.textContent = orbital.T.toFixed(3) + ' 年';
         const aKm = orbital.a / 1000;
         const bKm = orbital.b / 1000;
-        elements.semiMajor.textContent = formatJapanese(aKm, 4) + ' km';
-        elements.semiMinor.textContent = formatJapanese(bKm, 4) + ' km';
+        elements.semiMajor.textContent = formatValue(aKm, 4) + ' km';
+        elements.semiMinor.textContent = formatValue(bKm, 4) + ' km';
         elements.eccentricity.textContent = orbital.e.toFixed(4) + ' (楕円)';
     } else if (orbit.type === 'hyperbola') {
         elements.period.textContent = '∞ (脱出軌道)';
         const aKm = Math.abs(orbital.a) / 1000;
-        elements.semiMajor.textContent = formatJapanese(aKm, 4) + ' km (双曲)';
+        elements.semiMajor.textContent = formatValue(aKm, 4) + ' km (双曲)';
         elements.semiMinor.textContent = '—';
         elements.eccentricity.textContent = orbital.e.toFixed(4) + ' (双曲線)';
     } else {
         elements.period.textContent = '∞ (脱出軌道)';
         const pKm = Math.abs(orbital.a) / 1000;
-        elements.semiMajor.textContent = formatJapanese(pKm, 4) + ' km (放物)';
+        elements.semiMajor.textContent = formatValue(pKm, 4) + ' km (放物)';
         elements.semiMinor.textContent = '—';
         elements.eccentricity.textContent = orbital.e.toFixed(4) + ' (放物線)';
     }
@@ -1030,13 +976,13 @@ function resetSimulation() {
 // UI イベント
 elements.massB.addEventListener('input', (e) => {
     currentMassB = massSliderToValue(e.target.value);
-    elements.massBValue.textContent = formatJapanese(currentMassB, 4) + ' kg';
+    elements.massBValue.textContent = formatValue(currentMassB, 4) + ' kg';
     resetSimulation();
 });
 
 elements.initialDistance.addEventListener('input', (e) => {
     currentDistance = distanceSliderToValue(e.target.value);
-    elements.initialDistanceValue.textContent = formatJapanese(currentDistance / 1000, 3) + ' km';
+    elements.initialDistanceValue.textContent = formatValue(currentDistance / 1000, 3) + ' km';
     resetSimulation();
 });
 
@@ -1105,12 +1051,12 @@ document.querySelectorAll('.preset-btn').forEach(btn => {
         currentMassB = planet.mass;
         currentPlanetRadius = planet.radius;
         elements.massB.value = massValueToSlider(planet.mass);
-        elements.massBValue.textContent = formatJapanese(planet.mass, 4) + ' kg';
+        elements.massBValue.textContent = formatValue(planet.mass, 4) + ' kg';
 
         // 最遠点での距離を設定
         currentDistance = planet.aphelion;
         elements.initialDistance.value = distanceValueToSlider(planet.aphelion).toFixed(2);
-        elements.initialDistanceValue.textContent = formatJapanese(planet.aphelion / 1000, 3) + ' km';
+        elements.initialDistanceValue.textContent = formatValue(planet.aphelion / 1000, 3) + ' km';
 
         // 最遠点での速度を計算
         // v_a = sqrt(G * M_sun * (1 - e) / (a * (1 + e)))
@@ -1151,8 +1097,8 @@ window.addEventListener('load', () => {
     updateParameters();
 
     // 初期表示の更新
-    elements.massBValue.textContent = formatJapanese(currentMassB, 4) + ' kg';
-    elements.initialDistanceValue.textContent = formatJapanese(currentDistance / 1000, 3) + ' km';
+    elements.massBValue.textContent = formatValue(currentMassB, 4) + ' kg';
+    elements.initialDistanceValue.textContent = formatValue(currentDistance / 1000, 3) + ' km';
     elements.initialVelocityValue.textContent = velocityValueToSlider(currentVelocity).toFixed(1) + ' km/s';
 
     animate();
