@@ -9,7 +9,7 @@
 <body>
     <div class="container">
         <header>
-            <h1>太陽-火星シミュレーター</h1>
+            <h1>太陽-惑星シミュレーター</h1>
         </header>
 
         <div class="main-content">
@@ -23,7 +23,7 @@
                         <span id="mass-a-display" class="param-value">1.99×10³⁰ kg</span>
                     </div>
                     <div class="param-item">
-                        <span class="param-label">火星 <var>m</var>:</span>
+                        <span class="param-label">惑星 <var>m</var>:</span>
                         <span id="mass-b-display" class="param-value">6.39×10²³ kg</span>
                     </div>
                 </div>
@@ -80,10 +80,6 @@
             <!-- グラフィカル表示エリア -->
             <div class="canvas-panel">
                 <canvas id="simulation-canvas"></canvas>
-                <div class="instructions" id="instructions">
-                    火星をドラッグして速度を設定してください<br>
-                    そのままスタートすると現実の速度になります
-                </div>
                 <!-- ズームコントロール -->
                 <div class="zoom-controls">
                     <button id="zoom-in" class="zoom-btn" title="拡大">+</button>
@@ -97,6 +93,30 @@
                 <h2>コントロール</h2>
 
                 <div class="control-group">
+                    <label for="mass-a">太陽の質量</label>
+                    <input type="range" id="mass-a" min="20" max="30" value="30" step="0.1">
+                    <span id="mass-a-value">1.99×10³⁰ kg</span>
+                </div>
+
+                <div class="control-group">
+                    <label for="mass-b">惑星の質量</label>
+                    <input type="range" id="mass-b" min="20" max="27" value="23.81" step="0.01">
+                    <span id="mass-b-value">6.39×10²³ kg</span>
+                </div>
+
+                <div class="control-group">
+                    <label for="initial-distance">初期距離</label>
+                    <input type="range" id="initial-distance" min="0.5" max="3" value="1" step="0.01">
+                    <span id="initial-distance-value">1.00x</span>
+                </div>
+
+                <div class="control-group">
+                    <label for="initial-velocity">初速度</label>
+                    <input type="range" id="initial-velocity" min="0.5" max="2" value="1" step="0.01">
+                    <span id="initial-velocity-value">1.00x</span>
+                </div>
+
+                <div class="control-group">
                     <label for="speed">シミュレーション速度</label>
                     <input type="range" id="speed" min="0.1" max="5" value="1" step="0.1">
                     <span id="speed-value">1.0x</span>
@@ -106,6 +126,20 @@
                     <button id="start-btn" class="btn btn-primary">スタート</button>
                     <button id="stop-btn" class="btn btn-secondary" disabled>停止</button>
                     <button id="reset-btn" class="btn btn-secondary">リセット</button>
+                </div>
+
+                <div class="planet-presets">
+                    <h3>太陽系惑星プリセット</h3>
+                    <div class="preset-buttons">
+                        <button class="preset-btn" data-planet="mercury">水星</button>
+                        <button class="preset-btn" data-planet="venus">金星</button>
+                        <button class="preset-btn" data-planet="earth">地球</button>
+                        <button class="preset-btn" data-planet="mars">火星</button>
+                        <button class="preset-btn" data-planet="jupiter">木星</button>
+                        <button class="preset-btn" data-planet="saturn">土星</button>
+                        <button class="preset-btn" data-planet="uranus">天王星</button>
+                        <button class="preset-btn" data-planet="neptune">海王星</button>
+                    </div>
                 </div>
 
                 <div class="control-group">

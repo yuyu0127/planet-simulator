@@ -18,6 +18,14 @@ const elements = {
     massADisplay: document.getElementById('mass-a-display'),
     massBDisplay: document.getElementById('mass-b-display'),
     speedValue: document.getElementById('speed-value'),
+    massA: document.getElementById('mass-a'),
+    massB: document.getElementById('mass-b'),
+    massAValue: document.getElementById('mass-a-value'),
+    massBValue: document.getElementById('mass-b-value'),
+    initialDistance: document.getElementById('initial-distance'),
+    initialDistanceValue: document.getElementById('initial-distance-value'),
+    initialVelocity: document.getElementById('initial-velocity'),
+    initialVelocityValue: document.getElementById('initial-velocity-value'),
     startBtn: document.getElementById('start-btn'),
     stopBtn: document.getElementById('stop-btn'),
     resetBtn: document.getElementById('reset-btn'),
@@ -25,7 +33,6 @@ const elements = {
     showGrid: document.getElementById('show-grid'),
     showForce: document.getElementById('show-force'),
     enableCollision: document.getElementById('enable-collision'),
-    instructions: document.getElementById('instructions'),
     zoomIn: document.getElementById('zoom-in'),
     zoomOut: document.getElementById('zoom-out'),
     zoomReset: document.getElementById('zoom-reset')
@@ -35,28 +42,84 @@ const elements = {
 const CONSTANTS = {
     G: 6.644e4, // 重力定数 [m³/(kg·年²)]
     SUN_MASS: 1.989e30, // 太陽の質量 [kg]
-    MARS_MASS: 6.39e23, // 火星の質量 [kg]
+    MARS_MASS: 6.39e23, // 惑星の質量 [kg]（デフォルト値：火星）
     AU: 1.496e11, // 天文単位 [m]
     SUN_RADIUS: 6.96e8, // 太陽の半径 [m]
-    MARS_RADIUS: 3.39e6, // 火星の半径 [m]
-    MARS_ORBIT: 2.279e11, // 火星の軌道長半径 [m]
-    MARS_PERIHELION: 2.066e11, // 火星の近日点距離 [m]
-    MARS_ECCENTRICITY: 0.0934 // 火星の軌道離心率
+    MARS_RADIUS: 3.39e6, // 惑星の半径 [m]（デフォルト値：火星）
+    MARS_ORBIT: 2.279e11, // 軌道長半径 [m]（デフォルト値：火星）
+    MARS_PERIHELION: 2.066e11, // 近日点距離 [m]（デフォルト値：火星）
+    MARS_ECCENTRICITY: 0.0934 // 軌道離心率（デフォルト値：火星）
+};
+
+// 太陽系惑星のプリセットデータ（最遠点での位置と速度）
+const PLANET_PRESETS = {
+    mercury: {
+        name: '水星',
+        mass: 3.3011e23, // kg
+        radius: 2.4397e6, // m
+        aphelion: 6.982e10, // m（最遠点）
+        eccentricity: 0.2056
+    },
+    venus: {
+        name: '金星',
+        mass: 4.8675e24, // kg
+        radius: 6.0518e6, // m
+        aphelion: 1.0894e11, // m
+        eccentricity: 0.0067
+    },
+    earth: {
+        name: '地球',
+        mass: 5.972e24, // kg
+        radius: 6.371e6, // m
+        aphelion: 1.521e11, // m
+        eccentricity: 0.0167
+    },
+    mars: {
+        name: '火星',
+        mass: 6.39e23, // kg
+        radius: 3.3895e6, // m
+        aphelion: 2.492e11, // m
+        eccentricity: 0.0934
+    },
+    jupiter: {
+        name: '木星',
+        mass: 1.8982e27, // kg
+        radius: 6.9911e7, // m
+        aphelion: 8.166e11, // m
+        eccentricity: 0.0489
+    },
+    saturn: {
+        name: '土星',
+        mass: 5.6834e26, // kg
+        radius: 5.8232e7, // m
+        aphelion: 1.5145e12, // m
+        eccentricity: 0.0565
+    },
+    uranus: {
+        name: '天王星',
+        mass: 8.6810e25, // kg
+        radius: 2.5362e7, // m
+        aphelion: 3.008e12, // m
+        eccentricity: 0.0457
+    },
+    neptune: {
+        name: '海王星',
+        mass: 1.02413e26, // kg
+        radius: 2.4622e7, // m
+        aphelion: 4.54e12, // m
+        eccentricity: 0.0113
+    }
 };
 
 // シミュレーション状態
 let state = {
     running: false,
-    wasRunning: false, // ドラッグ前に実行中だったかどうか
     scale: 150, // 座標系のスケール係数（10^11 m → ピクセル）
     offsetX: 0,
     offsetY: 0,
     G: CONSTANTS.G, // 重力定数
     dt: 0.001, // タイムステップ [年]（解析解なので大きくても精度は完璧）
     speedMultiplier: 1,
-    dragging: null,
-    dragStart: { x: 0, y: 0 },
-    currentMouse: { x: 0, y: 0 },
     showTrail: true,
     showGrid: true,
     showForce: true,
@@ -72,16 +135,19 @@ function calculateDisplayRadius(actualRadius) {
 }
 
 // 惑星データを初期化する関数
-function initializeBodies(massA, massB) {
+function initializeBodies(massA, massB, initialDistance, initialVelocity, planetRadius) {
     // 太陽（A）は原点に固定
-    // 火星（B）を近日点距離に配置
-    const xB = CONSTANTS.MARS_PERIHELION; // [m]
+    // 惑星（B）を指定された距離に配置
+    const xB = initialDistance !== undefined ? initialDistance : CONSTANTS.MARS_PERIHELION; // [m]
 
-    // 近日点での速度を計算（垂直方向）
+    // 初速度が指定されていない場合は、近日点での速度を計算（垂直方向）
     // v_p = sqrt(G * M_sun * (1 + e) / (a * (1 - e)))
     const a = CONSTANTS.MARS_ORBIT;
     const e = CONSTANTS.MARS_ECCENTRICITY;
-    const vyB = Math.sqrt(CONSTANTS.G * massA * (1 + e) / (a * (1 - e)));
+    const defaultVelocity = Math.sqrt(CONSTANTS.G * massA * (1 + e) / (a * (1 - e)));
+    const vyB = initialVelocity !== undefined ? initialVelocity : defaultVelocity;
+
+    const bodyRadius = planetRadius !== undefined ? planetRadius : CONSTANTS.MARS_RADIUS;
 
     return {
         A: {
@@ -102,9 +168,9 @@ function initializeBodies(massA, massB) {
             y: 0,
             vx: 0,
             vy: vyB,
-            actualRadius: CONSTANTS.MARS_RADIUS,
-            radius: calculateDisplayRadius(CONSTANTS.MARS_RADIUS),
-            color: '#CD5C5C', // 火星の色（赤系）
+            actualRadius: bodyRadius,
+            radius: calculateDisplayRadius(bodyRadius),
+            color: '#CD5C5C', // 惑星の色（赤系）
             trail: [],
             active: true
         }
@@ -251,7 +317,7 @@ function drawForceVectors() {
     if (!state.showForce) return;
     if (!bodies.A.active || !bodies.B.active) return;
 
-    // 火星が太陽から受ける重力を計算（純粋なニュートン重力）
+    // 惑星が太陽から受ける重力を計算（純粋なニュートン重力）
     const dx = bodies.B.x - bodies.A.x;
     const dy = bodies.B.y - bodies.A.y;
     const distSq = dx * dx + dy * dy;
@@ -259,7 +325,7 @@ function drawForceVectors() {
 
     const forceScale = 0.01; // 表示用のスケール
 
-    // 火星（B）に働く力（太陽からの引力）F = GMm/r^2
+    // 惑星（B）に働く力（太陽からの引力）F = GMm/r^2
     const forceB = state.G * bodies.A.mass / distSq;
     const posB = toCanvas(bodies.B.x, bodies.B.y);
     const forceEndB = toCanvas(
@@ -269,51 +335,6 @@ function drawForceVectors() {
     drawArrow(posB.x, posB.y, forceEndB.x, forceEndB.y, '#FF00FF', 'F', '');
 }
 
-// ドラッグ中の速度矢印表示
-function drawDragArrow() {
-    if (!state.dragging) return;
-
-    const body = bodies[state.dragging];
-    const posStart = toCanvas(body.x, body.y);
-    const posCurrent = toCanvas(state.currentMouse.x, state.currentMouse.y);
-
-    // ドラッグした方向と逆向きの矢印を描画
-    // velocityScaleを適用して実際の速度と同じ長さで表示
-    const velocityScale = 5.0;
-    const dx = (posStart.x - posCurrent.x) * velocityScale;
-    const dy = (posStart.y - posCurrent.y) * velocityScale;
-    const length = Math.sqrt(dx * dx + dy * dy);
-
-    if (length < 5) return;
-
-    const arrowEndX = posStart.x + dx;
-    const arrowEndY = posStart.y + dy;
-
-    // 矢印の線
-    ctx.strokeStyle = '#FFD700';
-    ctx.lineWidth = 3;
-    ctx.beginPath();
-    ctx.moveTo(posStart.x, posStart.y);
-    ctx.lineTo(arrowEndX, arrowEndY);
-    ctx.stroke();
-
-    // 矢印の頭
-    const angle = Math.atan2(dy, dx);
-    const arrowSize = 15;
-    ctx.fillStyle = '#FFD700';
-    ctx.beginPath();
-    ctx.moveTo(arrowEndX, arrowEndY);
-    ctx.lineTo(
-        arrowEndX - arrowSize * Math.cos(angle - Math.PI / 6),
-        arrowEndY - arrowSize * Math.sin(angle - Math.PI / 6)
-    );
-    ctx.lineTo(
-        arrowEndX - arrowSize * Math.cos(angle + Math.PI / 6),
-        arrowEndY - arrowSize * Math.sin(angle + Math.PI / 6)
-    );
-    ctx.closePath();
-    ctx.fill();
-}
 
 // ベクトル描画ヘルパー関数
 function drawArrow(fromX, fromY, toX, toY, color, mainLabel, subLabel) {
@@ -425,9 +446,6 @@ function draw() {
 
     // 力ベクトル表示
     drawForceVectors();
-
-    // ドラッグ中の速度矢印表示
-    drawDragArrow();
 
     // 爆発エフェクト描画
     drawExplosion();
@@ -716,144 +734,42 @@ function animate() {
     requestAnimationFrame(animate);
 }
 
-// 共通のドラッグ開始処理
-function handleDragStart(clientX, clientY) {
-    const rect = canvas.getBoundingClientRect();
-    const canvasX = clientX - rect.left;
-    const canvasY = clientY - rect.top;
 
-    // 火星（B）のみドラッグ可能
-    // キャンバス座標で判定
-    const posB = toCanvas(bodies.B.x, bodies.B.y);
-    const distB = Math.sqrt((canvasX - posB.x) ** 2 + (canvasY - posB.y) ** 2);
+// 現在のスライダー値を保持する変数
+let currentMassA = CONSTANTS.SUN_MASS;
+let currentMassB = CONSTANTS.MARS_MASS;
+let currentDistanceMultiplier = 1.0;
+let currentVelocityMultiplier = 1.0;
+let currentPlanetRadius = CONSTANTS.MARS_RADIUS;
 
-    if (distB < 100) {
-        state.dragging = 'B';
-        state.dragStart = { x: bodies.B.x, y: bodies.B.y };
-        state.currentMouse = { x: bodies.B.x, y: bodies.B.y };
-
-        // シミュレーションを一時停止
-        if (state.running) {
-            state.wasRunning = true;
-            state.running = false;
-            elements.startBtn.disabled = false;
-            elements.stopBtn.disabled = true;
-        } else {
-            state.wasRunning = false;
-        }
-    }
+// 質量スライダーの値を実際の質量に変換
+function massSliderToValue(sliderValue) {
+    return Math.pow(10, parseFloat(sliderValue));
 }
 
-// 共通のドラッグ移動処理
-function handleDragMove(clientX, clientY) {
-    if (!state.dragging) return;
-
-    const rect = canvas.getBoundingClientRect();
-    const canvasX = clientX - rect.left;
-    const canvasY = clientY - rect.top;
-    const simPos = toSimulation(canvasX, canvasY);
-
-    state.currentMouse = { x: simPos.x, y: simPos.y };
-
-    // 速度はまだ設定しない（ドラッグ終了時に設定）
-    // ここでは矢印の表示のためにcurrentMouseを更新するだけ
+// 実際の質量をスライダーの値に変換
+function massValueToSlider(mass) {
+    return Math.log10(mass);
 }
 
-// 共通のドラッグ終了処理
-function handleDragEnd() {
-    if (state.dragging) {
-        const body = bodies[state.dragging];
-
-        // ドラッグした方向と逆向きに速度を直接設定
-        // 速度スケール係数を大きくして、より大きな初速度を設定可能に
-        const velocityScale = 5.0;
-        body.vx = -(state.currentMouse.x - state.dragStart.x) * velocityScale;
-        body.vy = -(state.currentMouse.y - state.dragStart.y) * velocityScale;
-
-        // 新しい初期条件から軌道要素を計算（現在時刻を新しいt0とする）
-        calculateOrbitalElementsFromState(body.x, body.y, body.vx, body.vy, state.elapsedTime);
-
-        updateParameters();
-
-        // シミュレーションを自動開始（初回でも再生）
-        state.running = true;
-        elements.startBtn.disabled = true;
-        elements.stopBtn.disabled = false;
-
-        elements.instructions.classList.add('hidden');
-    }
-    state.dragging = null;
-    state.wasRunning = false;
-}
-
-// マウスイベント
-canvas.addEventListener('mousedown', (e) => {
-    handleDragStart(e.clientX, e.clientY);
-});
-
-canvas.addEventListener('mousemove', (e) => {
-    handleDragMove(e.clientX, e.clientY);
-});
-
-canvas.addEventListener('mouseup', () => {
-    handleDragEnd();
-});
-
-canvas.addEventListener('mouseleave', () => {
-    handleDragEnd();
-});
-
-// タッチイベント
-canvas.addEventListener('touchstart', (e) => {
-    e.preventDefault(); // スクロールを防止
-    if (e.touches.length > 0) {
-        handleDragStart(e.touches[0].clientX, e.touches[0].clientY);
-    }
-});
-
-canvas.addEventListener('touchmove', (e) => {
-    e.preventDefault(); // スクロールを防止
-    if (e.touches.length > 0) {
-        handleDragMove(e.touches[0].clientX, e.touches[0].clientY);
-    }
-});
-
-canvas.addEventListener('touchend', (e) => {
-    e.preventDefault();
-    handleDragEnd();
-});
-
-canvas.addEventListener('touchcancel', (e) => {
-    e.preventDefault();
-    handleDragEnd();
-});
-
-// UI イベント
-elements.speed.addEventListener('input', (e) => {
-    state.speedMultiplier = parseFloat(e.target.value);
-    elements.speedValue.textContent = e.target.value + 'x';
-});
-
-elements.startBtn.addEventListener('click', () => {
-    state.running = true;
-    elements.startBtn.disabled = true;
-    elements.stopBtn.disabled = false;
-    elements.instructions.classList.add('hidden');
-});
-
-elements.stopBtn.addEventListener('click', () => {
-    state.running = false;
-    elements.startBtn.disabled = false;
-    elements.stopBtn.disabled = true;
-});
-
-elements.resetBtn.addEventListener('click', () => {
+// シミュレーションをリセットする関数
+function resetSimulation() {
     state.running = false;
     elements.startBtn.disabled = false;
     elements.stopBtn.disabled = true;
 
-    // 初期状態を再生成（固定質量）
-    bodies = initializeBodies(CONSTANTS.SUN_MASS, CONSTANTS.MARS_MASS);
+    // 基準距離（火星の最遠点）
+    const baseDistance = CONSTANTS.MARS_PERIHELION;
+    const initialDistance = baseDistance * currentDistanceMultiplier;
+
+    // 基準速度を計算
+    const a = CONSTANTS.MARS_ORBIT;
+    const e = CONSTANTS.MARS_ECCENTRICITY;
+    const baseVelocity = Math.sqrt(CONSTANTS.G * currentMassA * (1 + e) / (a * (1 - e)));
+    const initialVelocity = baseVelocity * currentVelocityMultiplier;
+
+    // 初期状態を再生成
+    bodies = initializeBodies(currentMassA, currentMassB, initialDistance, initialVelocity, currentPlanetRadius);
 
     // 軌道要素を初期条件から計算
     calculateOrbitalElementsFromState(bodies.B.x, bodies.B.y, bodies.B.vx, bodies.B.vy, 0);
@@ -864,8 +780,53 @@ elements.resetBtn.addEventListener('click', () => {
     // 経過時間をリセット
     state.elapsedTime = 0;
 
-    elements.instructions.classList.remove('hidden');
     updateParameters();
+}
+
+// UI イベント
+elements.massA.addEventListener('input', (e) => {
+    currentMassA = massSliderToValue(e.target.value);
+    elements.massAValue.textContent = formatJapanese(currentMassA, 4) + ' kg';
+    resetSimulation();
+});
+
+elements.massB.addEventListener('input', (e) => {
+    currentMassB = massSliderToValue(e.target.value);
+    elements.massBValue.textContent = formatJapanese(currentMassB, 4) + ' kg';
+    resetSimulation();
+});
+
+elements.initialDistance.addEventListener('input', (e) => {
+    currentDistanceMultiplier = parseFloat(e.target.value);
+    elements.initialDistanceValue.textContent = e.target.value + 'x';
+    resetSimulation();
+});
+
+elements.initialVelocity.addEventListener('input', (e) => {
+    currentVelocityMultiplier = parseFloat(e.target.value);
+    elements.initialVelocityValue.textContent = e.target.value + 'x';
+    resetSimulation();
+});
+
+elements.speed.addEventListener('input', (e) => {
+    state.speedMultiplier = parseFloat(e.target.value);
+    elements.speedValue.textContent = e.target.value + 'x';
+});
+
+elements.startBtn.addEventListener('click', () => {
+    state.running = true;
+    elements.startBtn.disabled = true;
+    elements.stopBtn.disabled = false;
+});
+
+elements.stopBtn.addEventListener('click', () => {
+    state.running = false;
+    elements.startBtn.disabled = false;
+    elements.stopBtn.disabled = true;
+});
+
+elements.resetBtn.addEventListener('click', () => {
+    resetSimulation();
 });
 
 elements.showTrail.addEventListener('change', (e) => {
@@ -885,6 +846,43 @@ elements.showForce.addEventListener('change', (e) => {
 
 elements.enableCollision.addEventListener('change', (e) => {
     state.enableCollision = e.target.checked;
+});
+
+// 惑星プリセットボタン
+document.querySelectorAll('.preset-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+        const planetKey = btn.dataset.planet;
+        const planet = PLANET_PRESETS[planetKey];
+
+        if (!planet) return;
+
+        // 質量を設定
+        currentMassB = planet.mass;
+        currentPlanetRadius = planet.radius;
+        elements.massB.value = massValueToSlider(planet.mass);
+        elements.massBValue.textContent = formatJapanese(planet.mass, 4) + ' kg';
+
+        // 最遠点での距離を設定
+        const aphelion = planet.aphelion;
+        currentDistanceMultiplier = aphelion / CONSTANTS.MARS_PERIHELION;
+        elements.initialDistance.value = currentDistanceMultiplier.toFixed(2);
+        elements.initialDistanceValue.textContent = currentDistanceMultiplier.toFixed(2) + 'x';
+
+        // 最遠点での速度を計算
+        // v_a = sqrt(G * M_sun * (1 - e) / (a * (1 + e)))
+        const a = aphelion / (1 + planet.eccentricity);
+        const velocityAtAphelion = Math.sqrt(CONSTANTS.G * currentMassA * (1 - planet.eccentricity) / (a * (1 + planet.eccentricity)));
+
+        // 基準速度（火星の近日点速度）
+        const baseVelocity = Math.sqrt(CONSTANTS.G * currentMassA * (1 + CONSTANTS.MARS_ECCENTRICITY) / (CONSTANTS.MARS_ORBIT * (1 - CONSTANTS.MARS_ECCENTRICITY)));
+
+        currentVelocityMultiplier = velocityAtAphelion / baseVelocity;
+        elements.initialVelocity.value = currentVelocityMultiplier.toFixed(2);
+        elements.initialVelocityValue.textContent = currentVelocityMultiplier.toFixed(2) + 'x';
+
+        // シミュレーションをリセット
+        resetSimulation();
+    });
 });
 
 // ズームコントロール

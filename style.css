@@ -294,6 +294,49 @@ header h1 {
     transform: translateY(0);
 }
 
+/* 惑星プリセット */
+.planet-presets {
+    margin-bottom: 20px;
+    padding-top: 15px;
+    border-top: 1px solid #333;
+}
+
+.planet-presets h3 {
+    font-size: 16px;
+    margin-bottom: 12px;
+    color: #42A5F5;
+}
+
+.preset-buttons {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+}
+
+.preset-btn {
+    padding: 8px 12px;
+    border: 1px solid #444;
+    border-radius: 4px;
+    font-size: 13px;
+    font-weight: bold;
+    cursor: pointer;
+    background-color: #333;
+    color: #e0e0e0;
+    transition: all 0.2s;
+}
+
+.preset-btn:hover {
+    background-color: #2196F3;
+    border-color: #2196F3;
+    color: white;
+    transform: translateY(-1px);
+    box-shadow: 0 2px 6px rgba(33, 150, 243, 0.3);
+}
+
+.preset-btn:active {
+    transform: translateY(0);
+}
+
 /* スクロールバー */
 .parameters-panel::-webkit-scrollbar,
 .controls-panel::-webkit-scrollbar {
