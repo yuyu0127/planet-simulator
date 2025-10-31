@@ -594,6 +594,10 @@ function formatJapanese(value, precision = 3) {
 
     // 日本語の単位（4桁ごと）
     const units = [
+        { threshold: 1e32, name: '溝' },
+        { threshold: 1e28, name: '穣' },
+        { threshold: 1e24, name: '秭' },
+        { threshold: 1e20, name: '垓' },
         { threshold: 1e16, name: '京' },
         { threshold: 1e12, name: '兆' },
         { threshold: 1e8, name: '億' },
@@ -670,9 +674,9 @@ function calculateOrbitalElements() {
 function updateParameters() {
     const orbital = calculateOrbitalElements();
 
-    // 質量を科学的記法で表示
-    elements.massADisplay.textContent = (bodies.A.mass / 1e30).toFixed(2) + '×10³⁰ kg';
-    elements.massBDisplay.textContent = (bodies.B.mass / 1e23).toFixed(2) + '×10²³ kg';
+    // 質量を日本語単位で表示
+    elements.massADisplay.textContent = formatJapanese(bodies.A.mass, 4) + ' kg';
+    elements.massBDisplay.textContent = formatJapanese(bodies.B.mass, 4) + ' kg';
 
     // 経過時間を表示
     elements.time.textContent = state.elapsedTime.toFixed(3) + ' 年';
