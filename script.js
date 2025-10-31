@@ -435,6 +435,23 @@ function drawExplosion() {
     ctx.fill();
 }
 
+// 太陽と惑星を結ぶ線分を描画
+function drawConnectionLine() {
+    if (!bodies.A.active || !bodies.B.active) return;
+
+    const posA = toCanvas(bodies.A.x, bodies.A.y);
+    const posB = toCanvas(bodies.B.x, bodies.B.y);
+
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.3)';
+    ctx.lineWidth = 1;
+    ctx.setLineDash([5, 5]); // 破線
+    ctx.beginPath();
+    ctx.moveTo(posA.x, posA.y);
+    ctx.lineTo(posB.x, posB.y);
+    ctx.stroke();
+    ctx.setLineDash([]); // 破線を解除
+}
+
 // 描画メインループ
 function draw() {
     // カメラは常にcanvasの中心（太陽の位置＝原点）
@@ -445,6 +462,10 @@ function draw() {
     ctx.fillRect(0, 0, canvas.width, canvas.height);
 
     drawGrid();
+
+    // 太陽と惑星を結ぶ線分（天体の下に描画）
+    drawConnectionLine();
+
     drawBody(bodies.A);
     drawBody(bodies.B);
 
