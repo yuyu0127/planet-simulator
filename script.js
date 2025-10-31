@@ -52,8 +52,7 @@ let state = {
     offsetX: 0,
     offsetY: 0,
     G: CONSTANTS.G, // 重力定数
-    dt: 0.0001, // タイムステップ [年]（約0.88時間）RK4法で高精度化
-    softening: 0, // 軟化パラメータ [m]（太陽-火星系では不要なので0に設定）
+    dt: 0.001, // タイムステップ [年]（解析解なので大きくても精度は完璧）
     speedMultiplier: 1,
     dragging: null,
     dragStart: { x: 0, y: 0 },
@@ -114,6 +113,17 @@ function initializeBodies(massA, massB) {
 
 // 惑星データ（実際の質量）
 let bodies = initializeBodies(CONSTANTS.SUN_MASS, CONSTANTS.MARS_MASS);
+
+// 軌道要素（解析解用）
+let orbit = {
+    a: 0,          // 長半径 [m]
+    e: 0,          // 離心率
+    omega: 0,      // 近点引数 [rad]
+    M0: 0,         // 初期平均近点角 [rad]
+    n: 0,          // 平均運動 [rad/年]
+    mu: 0,         // 標準重力パラメータ GM [m³/年²]
+    t0: 0          // 軌道要素を計算した時刻 [年]
+};
 
 // 爆発エフェクトの状態
 let explosion = {
@@ -241,17 +251,16 @@ function drawForceVectors() {
     if (!state.showForce) return;
     if (!bodies.A.active || !bodies.B.active) return;
 
-    // 火星が太陽から受ける重力を計算
+    // 火星が太陽から受ける重力を計算（純粋なニュートン重力）
     const dx = bodies.B.x - bodies.A.x;
     const dy = bodies.B.y - bodies.A.y;
     const distSq = dx * dx + dy * dy;
-    const softenedDistSq = distSq + state.softening * state.softening;
-    const dist = Math.sqrt(softenedDistSq);
+    const dist = Math.sqrt(distSq);
 
     const forceScale = 0.01; // 表示用のスケール
 
     // 火星（B）に働く力（太陽からの引力）F = GMm/r^2
-    const forceB = state.G * bodies.A.mass / softenedDistSq;
+    const forceB = state.G * bodies.A.mass / distSq;
     const posB = toCanvas(bodies.B.x, bodies.B.y);
     const forceEndB = toCanvas(
         bodies.B.x - (dx / dist) * forceB * forceScale,
@@ -424,26 +433,109 @@ function draw() {
     drawExplosion();
 }
 
-// 重力加速度計算（純粋なニュートン重力）
-// softening=0のため、歳差運動が発生しない正確な2体問題を解く
-function calculateAcceleration(body1, body2) {
-    const dx = body2.x - body1.x;
-    const dy = body2.y - body1.y;
-    const distSq = dx * dx + dy * dy;
+// 初期条件から軌道要素を計算
+function calculateOrbitalElementsFromState(x, y, vx, vy, currentTime) {
+    const r = Math.sqrt(x * x + y * y);
+    const v = Math.sqrt(vx * vx + vy * vy);
 
-    // 軟化パラメータ（通常は0、近接時のみ使用）
-    const softenedDistSq = distSq + state.softening * state.softening;
-    const dist = Math.sqrt(softenedDistSq);
+    const mu = state.G * bodies.A.mass;
 
-    // ニュートンの万有引力による加速度 a = G*M/r^2
-    const force = state.G * body2.mass / softenedDistSq;
-    const ax = force * dx / dist;
-    const ay = force * dy / dist;
+    // 比エネルギー（単位質量あたり）
+    const specificEnergy = (v * v) / 2 - mu / r;
 
-    return { ax, ay };
+    // 長半径 a = -μ / (2E)
+    const a = -mu / (2 * specificEnergy);
+
+    // 角運動量ベクトル（z成分のみ、2次元）
+    const h = x * vy - y * vx;
+
+    // 離心率 e = sqrt(1 + 2Eh²/μ²)
+    const e = Math.sqrt(Math.max(0, 1 + 2 * specificEnergy * h * h / (mu * mu)));
+
+    // ラプラス・ルンゲ・レンツベクトル（離心率ベクトル）
+    const ex = (vy * h / mu) - (x / r);
+    const ey = -(vx * h / mu) - (y / r);
+
+    // 近点引数 ω（離心率ベクトルの角度）
+    const omega = Math.atan2(ey, ex);
+
+    // 現在の真近点角 ν
+    const cosNu = (x * Math.cos(omega) + y * Math.sin(omega)) / r;
+    const sinNu = (-x * Math.sin(omega) + y * Math.cos(omega)) / r;
+    const nu = Math.atan2(sinNu, cosNu);
+
+    // 離心近点角 E
+    const E = 2 * Math.atan(Math.sqrt((1 - e) / (1 + e)) * Math.tan(nu / 2));
+
+    // 平均近点角 M
+    const M = E - e * Math.sin(E);
+
+    // 平均運動 n = sqrt(μ/a³)
+    const n = Math.sqrt(mu / Math.abs(a * a * a));
+
+    orbit.a = a;
+    orbit.e = e;
+    orbit.omega = omega;
+    orbit.M0 = M;
+    orbit.n = n;
+    orbit.mu = mu;
+    orbit.t0 = currentTime;
 }
 
-// 物理シミュレーション（4次のルンゲ・クッタ法）
+// ケプラーの方程式を解く（ニュートン法）
+// M = E - e*sin(E) から E を求める
+function solveKeplerEquation(M, e, tolerance = 1e-10, maxIterations = 100) {
+    // 初期推定値
+    let E = M + e * Math.sin(M);
+
+    for (let i = 0; i < maxIterations; i++) {
+        const f = E - e * Math.sin(E) - M;
+        const fPrime = 1 - e * Math.cos(E);
+        const dE = f / fPrime;
+
+        E = E - dE;
+
+        if (Math.abs(dE) < tolerance) {
+            return E;
+        }
+    }
+
+    return E;
+}
+
+// 時間から位置と速度を計算（解析解）
+function updatePositionFromTime(t) {
+    // 平均近点角 M(t) = M0 + n*(t - t0)
+    const M = orbit.M0 + orbit.n * (t - orbit.t0);
+
+    // ケプラーの方程式を解いて離心近点角 E を求める
+    const E = solveKeplerEquation(M, orbit.e);
+
+    // 真近点角 ν を計算
+    const nu = 2 * Math.atan(Math.sqrt((1 + orbit.e) / (1 - orbit.e)) * Math.tan(E / 2));
+
+    // 軌道半径 r = a(1 - e*cos(E))
+    const r = orbit.a * (1 - orbit.e * Math.cos(E));
+
+    // 軌道面内の位置（近点座標系）
+    const xOrb = r * Math.cos(nu);
+    const yOrb = r * Math.sin(nu);
+
+    // 慣性座標系への変換（近点引数 ω で回転）
+    bodies.B.x = xOrb * Math.cos(orbit.omega) - yOrb * Math.sin(orbit.omega);
+    bodies.B.y = xOrb * Math.sin(orbit.omega) + yOrb * Math.cos(orbit.omega);
+
+    // 速度の計算
+    const vFactor = Math.sqrt(orbit.mu / orbit.a);
+    const vxOrb = -vFactor * Math.sin(E) / (1 - orbit.e * Math.cos(E));
+    const vyOrb = vFactor * Math.sqrt(1 - orbit.e * orbit.e) * Math.cos(E) / (1 - orbit.e * Math.cos(E));
+
+    // 慣性座標系への変換
+    bodies.B.vx = vxOrb * Math.cos(orbit.omega) - vyOrb * Math.sin(orbit.omega);
+    bodies.B.vy = vxOrb * Math.sin(orbit.omega) + vyOrb * Math.cos(orbit.omega);
+}
+
+// 物理シミュレーション（解析解）
 function updatePhysics() {
     // 両方の惑星がアクティブでない場合は更新しない
     if (!bodies.A.active || !bodies.B.active) return;
@@ -453,71 +545,8 @@ function updatePhysics() {
     // 経過時間を更新
     state.elapsedTime += dt;
 
-    // 現在の状態を保存
-    const x0 = bodies.B.x;
-    const y0 = bodies.B.y;
-    const vx0 = bodies.B.vx;
-    const vy0 = bodies.B.vy;
-
-    // k1: 現在の状態での導関数
-    const acc1 = calculateAcceleration(bodies.B, bodies.A);
-    const k1 = {
-        x: vx0,
-        y: vy0,
-        vx: acc1.ax,
-        vy: acc1.ay
-    };
-
-    // k2: dt/2 進めた状態での導関数
-    bodies.B.x = x0 + k1.x * dt / 2;
-    bodies.B.y = y0 + k1.y * dt / 2;
-    bodies.B.vx = vx0 + k1.vx * dt / 2;
-    bodies.B.vy = vy0 + k1.vy * dt / 2;
-    const acc2 = calculateAcceleration(bodies.B, bodies.A);
-    const k2 = {
-        x: bodies.B.vx,
-        y: bodies.B.vy,
-        vx: acc2.ax,
-        vy: acc2.ay
-    };
-
-    // k3: dt/2 進めた状態（k2を使用）での導関数
-    bodies.B.x = x0 + k2.x * dt / 2;
-    bodies.B.y = y0 + k2.y * dt / 2;
-    bodies.B.vx = vx0 + k2.vx * dt / 2;
-    bodies.B.vy = vy0 + k2.vy * dt / 2;
-    const acc3 = calculateAcceleration(bodies.B, bodies.A);
-    const k3 = {
-        x: bodies.B.vx,
-        y: bodies.B.vy,
-        vx: acc3.ax,
-        vy: acc3.ay
-    };
-
-    // k4: dt 進めた状態（k3を使用）での導関数
-    bodies.B.x = x0 + k3.x * dt;
-    bodies.B.y = y0 + k3.y * dt;
-    bodies.B.vx = vx0 + k3.vx * dt;
-    bodies.B.vy = vy0 + k3.vy * dt;
-    const acc4 = calculateAcceleration(bodies.B, bodies.A);
-    const k4 = {
-        x: bodies.B.vx,
-        y: bodies.B.vy,
-        vx: acc4.ax,
-        vy: acc4.ay
-    };
-
-    // 最終的な更新（加重平均）
-    bodies.B.x = x0 + (k1.x + 2 * k2.x + 2 * k3.x + k4.x) * dt / 6;
-    bodies.B.y = y0 + (k1.y + 2 * k2.y + 2 * k3.y + k4.y) * dt / 6;
-    bodies.B.vx = vx0 + (k1.vx + 2 * k2.vx + 2 * k3.vx + k4.vx) * dt / 6;
-    bodies.B.vy = vy0 + (k1.vy + 2 * k2.vy + 2 * k3.vy + k4.vy) * dt / 6;
-
-    // 太陽は完全に固定（位置も速度も更新しない）
-    // bodies.A.x = 0;
-    // bodies.A.y = 0;
-    // bodies.A.vx = 0;
-    // bodies.A.vy = 0;
+    // 解析解で位置と速度を計算
+    updatePositionFromTime(state.elapsedTime);
 
     // 衝突判定（有効化されている場合のみ）
     if (state.enableCollision) {
@@ -675,10 +704,8 @@ function updateParameters() {
 // アニメーションループ
 function animate() {
     if (state.running) {
-        // 1フレームで5回計算することで5倍速に
-        for (let i = 0; i < 5; i++) {
-            updatePhysics();
-        }
+        // 解析解なので1回の計算で正確
+        updatePhysics();
         updateParameters();
     }
     draw();
@@ -738,6 +765,12 @@ function handleDragEnd() {
         const velocityScale = 5.0;
         body.vx = -(state.currentMouse.x - state.dragStart.x) * velocityScale;
         body.vy = -(state.currentMouse.y - state.dragStart.y) * velocityScale;
+
+        // 新しい初期条件から軌道要素を計算（現在時刻を新しいt0とする）
+        calculateOrbitalElementsFromState(body.x, body.y, body.vx, body.vy, state.elapsedTime);
+
+        // 軌道をクリア
+        body.trail = [];
 
         updateParameters();
 
@@ -821,6 +854,9 @@ elements.resetBtn.addEventListener('click', () => {
     // 初期状態を再生成（固定質量）
     bodies = initializeBodies(CONSTANTS.SUN_MASS, CONSTANTS.MARS_MASS);
 
+    // 軌道要素を初期条件から計算
+    calculateOrbitalElementsFromState(bodies.B.x, bodies.B.y, bodies.B.vx, bodies.B.vy, 0);
+
     // 爆発エフェクトをリセット
     explosion.active = false;
 
@@ -869,6 +905,8 @@ elements.zoomReset.addEventListener('click', () => {
 // 初期化
 window.addEventListener('load', () => {
     resizeCanvas();
+    // 初期軌道要素を計算
+    calculateOrbitalElementsFromState(bodies.B.x, bodies.B.y, bodies.B.vx, bodies.B.vy, 0);
     updateParameters();
     animate();
 });
