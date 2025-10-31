@@ -624,13 +624,42 @@ function formatJapanese(value, precision = 3) {
     for (const unit of units) {
         if (absValue >= unit.threshold) {
             const quotient = absValue / unit.threshold;
-            return `${sign}${quotient.toPrecision(precision)}${unit.name}`;
+            // quotientを適切にフォーマット（科学的記法を避ける）
+            let formattedQuotient;
+            if (quotient >= 1000) {
+                // 1000以上の場合は整数部分のみ
+                formattedQuotient = Math.round(quotient).toString();
+            } else if (quotient >= 100) {
+                // 100-999の場合は小数点以下1桁
+                formattedQuotient = quotient.toFixed(1);
+            } else if (quotient >= 10) {
+                // 10-99の場合は小数点以下2桁
+                formattedQuotient = quotient.toFixed(2);
+            } else {
+                // 1-9の場合は小数点以下3桁
+                formattedQuotient = quotient.toFixed(3);
+            }
+            // 末尾の不要な0を削除
+            formattedQuotient = formattedQuotient.replace(/\.?0+$/, '');
+            return `${sign}${formattedQuotient}${unit.name}`;
         }
     }
 
     // 1万未満の場合
     if (absValue >= 1) {
-        return `${sign}${absValue.toPrecision(precision)}`;
+        // 整数または小数を適切にフォーマット
+        let formatted;
+        if (absValue >= 1000) {
+            formatted = Math.round(absValue).toString();
+        } else if (absValue >= 100) {
+            formatted = absValue.toFixed(1);
+        } else if (absValue >= 10) {
+            formatted = absValue.toFixed(2);
+        } else {
+            formatted = absValue.toFixed(3);
+        }
+        formatted = formatted.replace(/\.?0+$/, '');
+        return `${sign}${formatted}`;
     } else {
         // 小数の場合は科学的記法
         const exp = value.toExponential(precision - 1);
