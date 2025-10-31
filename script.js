@@ -779,25 +779,62 @@ function updatePhysics() {
     }
 }
 
-// 値を指数表記でフォーマット
+// 値を日本語の単位系でフォーマット
 function formatValue(value, precision = 3) {
     if (value === 0) return '0';
 
     const absValue = Math.abs(value);
 
-    // 指数表記で表示
-    const exp = value.toExponential(precision - 1);
-    const [mantissa, exponent] = exp.split('e');
-    const expNum = parseInt(exponent);
+    // 1万より小さい場合はそのまま表示
+    if (absValue < 10000) {
+        return value.toFixed(0);
+    }
 
-    const superscript = {
-        '0': '⁰', '1': '¹', '2': '²', '3': '³', '4': '⁴',
-        '5': '⁵', '6': '⁶', '7': '⁷', '8': '⁸', '9': '⁹',
-        '-': '⁻', '+': '⁺'
-    };
+    // 日本語単位系の定義（大きい順）
+    const units = [
+        { threshold: 1e68, name: '無量大数' },
+        { threshold: 1e64, name: '不可思議' },
+        { threshold: 1e60, name: '那由他' },
+        { threshold: 1e56, name: '阿僧祇' },
+        { threshold: 1e52, name: '恒河沙' },
+        { threshold: 1e48, name: '極' },
+        { threshold: 1e44, name: '載' },
+        { threshold: 1e40, name: '正' },
+        { threshold: 1e36, name: '澗' },
+        { threshold: 1e32, name: '溝' },
+        { threshold: 1e28, name: '穣' },
+        { threshold: 1e24, name: '秭' },
+        { threshold: 1e20, name: '垓' },
+        { threshold: 1e16, name: '京' },
+        { threshold: 1e12, name: '兆' },
+        { threshold: 1e8, name: '億' },
+        { threshold: 1e4, name: '万' }
+    ];
 
-    const expStr = expNum.toString().split('').map(c => superscript[c] || c).join('');
-    return `${mantissa}×10${expStr}`;
+    // 適切な単位を見つける
+    for (const unit of units) {
+        if (absValue >= unit.threshold) {
+            const convertedValue = value / unit.threshold;
+            const absConverted = Math.abs(convertedValue);
+
+            // 整数部の桁数に応じて小数点以下の桁数を調整
+            let decimalPlaces;
+            if (absConverted >= 1000) {
+                decimalPlaces = 0;  // 1000以上: 小数点なし
+            } else if (absConverted >= 100) {
+                decimalPlaces = 1;  // 100-999: 小数点以下1桁
+            } else if (absConverted >= 10) {
+                decimalPlaces = 2;  // 10-99: 小数点以下2桁
+            } else {
+                decimalPlaces = 3;  // 1-9: 小数点以下3桁
+            }
+
+            return convertedValue.toFixed(decimalPlaces) + unit.name;
+        }
+    }
+
+    // 万未満（このパスには到達しないはず）
+    return value.toFixed(0);
 }
 
 // 軌道要素を計算
