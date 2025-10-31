@@ -327,7 +327,7 @@ function drawForceVectors() {
 
     // 表示用のスケール（質量に応じて調整）
     // 質量が大きいほど力も大きくなるので、適切に表示するためのスケーリング
-    const forceScale = 1e-26 / Math.sqrt(bodies.B.mass / CONSTANTS.MARS_MASS);
+    const forceScale = 1e-27 / Math.sqrt(bodies.B.mass / CONSTANTS.EARTH_MASS);
 
     // 惑星（B）に働く力（太陽からの引力）F = G*M*m/r^2
     const forceB = state.G * bodies.A.mass * bodies.B.mass / distSq;
