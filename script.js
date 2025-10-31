@@ -140,10 +140,12 @@ function initializeBodies(massA, massB, initialDistance, initialVelocity, planet
     const xB = initialDistance !== undefined ? initialDistance : CONSTANTS.MARS_PERIHELION; // [m]
 
     // 初速度が指定されていない場合は、近日点での速度を計算（垂直方向）
-    // v_p = sqrt(G * M_sun * (1 + e) / (a * (1 - e)))
+    // v_p = sqrt(G * (M_sun + m) * (1 + e) / (a * (1 - e)))
+    // 換算質量を使用
     const a = CONSTANTS.MARS_ORBIT;
     const e = CONSTANTS.MARS_ECCENTRICITY;
-    const defaultVelocity = Math.sqrt(CONSTANTS.G * massA * (1 + e) / (a * (1 - e)));
+    const mu = CONSTANTS.G * (massA + massB);
+    const defaultVelocity = Math.sqrt(mu * (1 + e) / (a * (1 - e)));
     const vyB = initialVelocity !== undefined ? initialVelocity : defaultVelocity;
 
     const bodyRadius = planetRadius !== undefined ? planetRadius : CONSTANTS.MARS_RADIUS;
@@ -456,7 +458,8 @@ function calculateOrbitalElementsFromState(x, y, vx, vy, currentTime) {
     const r = Math.sqrt(x * x + y * y);
     const v = Math.sqrt(vx * vx + vy * vy);
 
-    const mu = state.G * bodies.A.mass;
+    // 換算質量を使用（両方の質量を考慮）
+    const mu = state.G * (bodies.A.mass + bodies.B.mass);
 
     // 比エネルギー（単位質量あたり）
     const specificEnergy = (v * v) / 2 - mu / r;
@@ -839,7 +842,8 @@ function calculateOrbitalElements() {
     const v = Math.sqrt(vx * vx + vy * vy);
 
     // 比エネルギー（単位質量あたりのエネルギー）
-    const mu = state.G * bodies.A.mass;
+    // 換算質量を使用（両方の質量を考慮）
+    const mu = state.G * (bodies.A.mass + bodies.B.mass);
     const specificEnergy = (v * v) / 2 - mu / r;
 
     // 長半径 a = -mu / (2 * E)
