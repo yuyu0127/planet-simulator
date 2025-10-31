@@ -52,8 +52,8 @@ let state = {
     offsetX: 0,
     offsetY: 0,
     G: CONSTANTS.G, // 重力定数
-    dt: 0.0005, // タイムステップ [年]（約4.4時間）
-    softening: 1e9, // 軟化パラメータ [m]（近接時の計算安定化）
+    dt: 0.0001, // タイムステップ [年]（約0.88時間）RK4法で高精度化
+    softening: 0, // 軟化パラメータ [m]（太陽-火星系では不要なので0に設定）
     speedMultiplier: 1,
     dragging: null,
     dragStart: { x: 0, y: 0 },
@@ -66,22 +66,9 @@ let state = {
     elapsedTime: 0 // 経過時間 [年]
 };
 
-// 質量から表示用半径を計算
-// 実際の半径は軌道に比べて小さすぎるため、表示用に拡大
-function calculateDisplayRadius(mass, actualRadius) {
-    /*
-    // 実際の半径を使用し、表示可能なサイズにスケーリング
-    // 太陽: 基準サイズ、火星: 太陽との比率を維持しつつ見やすく
-    if (mass > 1e29) {
-        // 太陽
-        return actualRadius * state.displayScale * 10; // 拡大して表示
-    } else {
-        // 火星
-        return actualRadius * state.displayScale * 50; // さらに拡大して表示
-    }
-    */
-
-    // そのまま実際の半径を使用
+// 実際の半径から表示用半径を計算
+function calculateDisplayRadius(actualRadius) {
+    // そのまま実際の半径を使用（displayScaleで10^11 m単位に変換）
     return actualRadius * state.displayScale;
 }
 
@@ -105,7 +92,7 @@ function initializeBodies(massA, massB) {
             vx: 0,
             vy: 0,
             actualRadius: CONSTANTS.SUN_RADIUS,
-            radius: calculateDisplayRadius(massA, CONSTANTS.SUN_RADIUS),
+            radius: calculateDisplayRadius(CONSTANTS.SUN_RADIUS),
             color: '#FDB813', // 太陽の色（黄色）
             trail: [],
             active: true
@@ -117,7 +104,7 @@ function initializeBodies(massA, massB) {
             vx: 0,
             vy: vyB,
             actualRadius: CONSTANTS.MARS_RADIUS,
-            radius: calculateDisplayRadius(massB, CONSTANTS.MARS_RADIUS),
+            radius: calculateDisplayRadius(CONSTANTS.MARS_RADIUS),
             color: '#CD5C5C', // 火星の色（赤系）
             trail: [],
             active: true
@@ -254,7 +241,7 @@ function drawForceVectors() {
     if (!state.showForce) return;
     if (!bodies.A.active || !bodies.B.active) return;
 
-    // 火星がBから受ける力を計算（軟化パラメータ適用）
+    // 火星が太陽から受ける重力を計算
     const dx = bodies.B.x - bodies.A.x;
     const dy = bodies.B.y - bodies.A.y;
     const distSq = dx * dx + dy * dy;
@@ -263,7 +250,7 @@ function drawForceVectors() {
 
     const forceScale = 0.01; // 表示用のスケール
 
-    // 火星（B）に働く力（太陽からの引力）
+    // 火星（B）に働く力（太陽からの引力）F = GMm/r^2
     const forceB = state.G * bodies.A.mass / softenedDistSq;
     const posB = toCanvas(bodies.B.x, bodies.B.y);
     const forceEndB = toCanvas(
@@ -437,17 +424,18 @@ function draw() {
     drawExplosion();
 }
 
-// 重力加速度計算（軟化パラメータ適用）
+// 重力加速度計算（純粋なニュートン重力）
+// softening=0のため、歳差運動が発生しない正確な2体問題を解く
 function calculateAcceleration(body1, body2) {
     const dx = body2.x - body1.x;
     const dy = body2.y - body1.y;
     const distSq = dx * dx + dy * dy;
 
-    // 軟化パラメータを追加（近接時の発散を防ぐ）
+    // 軟化パラメータ（通常は0、近接時のみ使用）
     const softenedDistSq = distSq + state.softening * state.softening;
     const dist = Math.sqrt(softenedDistSq);
 
-    // 軟化距離を使った力の計算
+    // ニュートンの万有引力による加速度 a = G*M/r^2
     const force = state.G * body2.mass / softenedDistSq;
     const ax = force * dx / dist;
     const ay = force * dy / dist;
@@ -687,7 +675,10 @@ function updateParameters() {
 // アニメーションループ
 function animate() {
     if (state.running) {
-        updatePhysics();
+        // 1フレームで5回計算することで5倍速に
+        for (let i = 0; i < 5; i++) {
+            updatePhysics();
+        }
         updateParameters();
     }
     draw();
