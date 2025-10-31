@@ -18,9 +18,7 @@ const elements = {
     massADisplay: document.getElementById('mass-a-display'),
     massBDisplay: document.getElementById('mass-b-display'),
     speedValue: document.getElementById('speed-value'),
-    massA: document.getElementById('mass-a'),
     massB: document.getElementById('mass-b'),
-    massAValue: document.getElementById('mass-a-value'),
     massBValue: document.getElementById('mass-b-value'),
     initialDistance: document.getElementById('initial-distance'),
     initialDistanceValue: document.getElementById('initial-distance-value'),
@@ -29,6 +27,7 @@ const elements = {
     startBtn: document.getElementById('start-btn'),
     stopBtn: document.getElementById('stop-btn'),
     resetBtn: document.getElementById('reset-btn'),
+    clearTrailBtn: document.getElementById('clear-trail-btn'),
     showTrail: document.getElementById('show-trail'),
     showGrid: document.getElementById('show-grid'),
     showForce: document.getElementById('show-force'),
@@ -735,11 +734,13 @@ function animate() {
 }
 
 
-// 現在のスライダー値を保持する変数
-let currentMassA = CONSTANTS.SUN_MASS;
+// 現在のスライダー値を保持する変数（太陽の質量は固定）
+const currentMassA = CONSTANTS.SUN_MASS;
 let currentMassB = CONSTANTS.MARS_MASS;
-let currentDistanceMultiplier = 1.0;
-let currentVelocityMultiplier = 1.0;
+let currentDistance = CONSTANTS.MARS_PERIHELION; // [m]
+// 火星の近日点速度を計算 v_p = sqrt(G * M_sun * (1 + e) / (a * (1 - e)))
+const marsInitialVelocity = Math.sqrt(CONSTANTS.G * CONSTANTS.SUN_MASS * (1 + CONSTANTS.MARS_ECCENTRICITY) / (CONSTANTS.MARS_ORBIT * (1 - CONSTANTS.MARS_ECCENTRICITY)));
+let currentVelocity = marsInitialVelocity; // [m/年]
 let currentPlanetRadius = CONSTANTS.MARS_RADIUS;
 
 // 質量スライダーの値を実際の質量に変換
@@ -752,24 +753,38 @@ function massValueToSlider(mass) {
     return Math.log10(mass);
 }
 
+// 距離スライダーの値を実際の距離に変換 (10^11 m → m)
+function distanceSliderToValue(sliderValue) {
+    return parseFloat(sliderValue) * 1e11;
+}
+
+// 実際の距離をスライダーの値に変換 (m → 10^11 m)
+function distanceValueToSlider(distance) {
+    return distance / 1e11;
+}
+
+// 速度スライダーの値を実際の速度に変換 (km/s → m/年)
+function velocitySliderToValue(sliderValue) {
+    // km/s → m/s → m/年
+    const mPerSec = parseFloat(sliderValue) * 1000;
+    return mPerSec * 31557600; // 1年 = 31,557,600秒
+}
+
+// 実際の速度をスライダーの値に変換 (m/年 → km/s)
+function velocityValueToSlider(velocity) {
+    // m/年 → m/s → km/s
+    const mPerSec = velocity / 31557600;
+    return mPerSec / 1000;
+}
+
 // シミュレーションをリセットする関数
 function resetSimulation() {
     state.running = false;
     elements.startBtn.disabled = false;
     elements.stopBtn.disabled = true;
 
-    // 基準距離（火星の最遠点）
-    const baseDistance = CONSTANTS.MARS_PERIHELION;
-    const initialDistance = baseDistance * currentDistanceMultiplier;
-
-    // 基準速度を計算
-    const a = CONSTANTS.MARS_ORBIT;
-    const e = CONSTANTS.MARS_ECCENTRICITY;
-    const baseVelocity = Math.sqrt(CONSTANTS.G * currentMassA * (1 + e) / (a * (1 - e)));
-    const initialVelocity = baseVelocity * currentVelocityMultiplier;
-
     // 初期状態を再生成
-    bodies = initializeBodies(currentMassA, currentMassB, initialDistance, initialVelocity, currentPlanetRadius);
+    bodies = initializeBodies(currentMassA, currentMassB, currentDistance, currentVelocity, currentPlanetRadius);
 
     // 軌道要素を初期条件から計算
     calculateOrbitalElementsFromState(bodies.B.x, bodies.B.y, bodies.B.vx, bodies.B.vy, 0);
@@ -784,12 +799,6 @@ function resetSimulation() {
 }
 
 // UI イベント
-elements.massA.addEventListener('input', (e) => {
-    currentMassA = massSliderToValue(e.target.value);
-    elements.massAValue.textContent = formatJapanese(currentMassA, 4) + ' kg';
-    resetSimulation();
-});
-
 elements.massB.addEventListener('input', (e) => {
     currentMassB = massSliderToValue(e.target.value);
     elements.massBValue.textContent = formatJapanese(currentMassB, 4) + ' kg';
@@ -797,14 +806,14 @@ elements.massB.addEventListener('input', (e) => {
 });
 
 elements.initialDistance.addEventListener('input', (e) => {
-    currentDistanceMultiplier = parseFloat(e.target.value);
-    elements.initialDistanceValue.textContent = e.target.value + 'x';
+    currentDistance = distanceSliderToValue(e.target.value);
+    elements.initialDistanceValue.textContent = formatJapanese(currentDistance / 1000, 3) + ' km';
     resetSimulation();
 });
 
 elements.initialVelocity.addEventListener('input', (e) => {
-    currentVelocityMultiplier = parseFloat(e.target.value);
-    elements.initialVelocityValue.textContent = e.target.value + 'x';
+    currentVelocity = velocitySliderToValue(e.target.value);
+    elements.initialVelocityValue.textContent = e.target.value + ' km/s';
     resetSimulation();
 });
 
@@ -826,7 +835,14 @@ elements.stopBtn.addEventListener('click', () => {
 });
 
 elements.resetBtn.addEventListener('click', () => {
+    // 軌道をクリア
+    bodies.B.trail = [];
     resetSimulation();
+});
+
+elements.clearTrailBtn.addEventListener('click', () => {
+    // 軌道のみをクリア
+    bodies.B.trail = [];
 });
 
 elements.showTrail.addEventListener('change', (e) => {
@@ -863,22 +879,19 @@ document.querySelectorAll('.preset-btn').forEach(btn => {
         elements.massBValue.textContent = formatJapanese(planet.mass, 4) + ' kg';
 
         // 最遠点での距離を設定
-        const aphelion = planet.aphelion;
-        currentDistanceMultiplier = aphelion / CONSTANTS.MARS_PERIHELION;
-        elements.initialDistance.value = currentDistanceMultiplier.toFixed(2);
-        elements.initialDistanceValue.textContent = currentDistanceMultiplier.toFixed(2) + 'x';
+        currentDistance = planet.aphelion;
+        elements.initialDistance.value = distanceValueToSlider(planet.aphelion).toFixed(2);
+        elements.initialDistanceValue.textContent = formatJapanese(planet.aphelion / 1000, 3) + ' km';
 
         // 最遠点での速度を計算
         // v_a = sqrt(G * M_sun * (1 - e) / (a * (1 + e)))
-        const a = aphelion / (1 + planet.eccentricity);
+        const a = planet.aphelion / (1 + planet.eccentricity);
         const velocityAtAphelion = Math.sqrt(CONSTANTS.G * currentMassA * (1 - planet.eccentricity) / (a * (1 + planet.eccentricity)));
 
-        // 基準速度（火星の近日点速度）
-        const baseVelocity = Math.sqrt(CONSTANTS.G * currentMassA * (1 + CONSTANTS.MARS_ECCENTRICITY) / (CONSTANTS.MARS_ORBIT * (1 - CONSTANTS.MARS_ECCENTRICITY)));
-
-        currentVelocityMultiplier = velocityAtAphelion / baseVelocity;
-        elements.initialVelocity.value = currentVelocityMultiplier.toFixed(2);
-        elements.initialVelocityValue.textContent = currentVelocityMultiplier.toFixed(2) + 'x';
+        currentVelocity = velocityAtAphelion;
+        const velocityKmPerS = velocityValueToSlider(velocityAtAphelion);
+        elements.initialVelocity.value = velocityKmPerS.toFixed(1);
+        elements.initialVelocityValue.textContent = velocityKmPerS.toFixed(1) + ' km/s';
 
         // シミュレーションをリセット
         resetSimulation();

@@ -93,27 +93,21 @@
                 <h2>コントロール</h2>
 
                 <div class="control-group">
-                    <label for="mass-a">太陽の質量</label>
-                    <input type="range" id="mass-a" min="20" max="30" value="30" step="0.1">
-                    <span id="mass-a-value">1.99×10³⁰ kg</span>
-                </div>
-
-                <div class="control-group">
-                    <label for="mass-b">惑星の質量</label>
+                    <label for="mass-b">惑星の質量（kg）</label>
                     <input type="range" id="mass-b" min="20" max="27" value="23.81" step="0.01">
                     <span id="mass-b-value">6.39×10²³ kg</span>
                 </div>
 
                 <div class="control-group">
-                    <label for="initial-distance">初期距離</label>
-                    <input type="range" id="initial-distance" min="0.5" max="3" value="1" step="0.01">
-                    <span id="initial-distance-value">1.00x</span>
+                    <label for="initial-distance">初期距離（10¹¹ m）</label>
+                    <input type="range" id="initial-distance" min="0.5" max="5" value="2.066" step="0.01">
+                    <span id="initial-distance-value">2.07×10¹¹ m</span>
                 </div>
 
                 <div class="control-group">
-                    <label for="initial-velocity">初速度</label>
-                    <input type="range" id="initial-velocity" min="0.5" max="2" value="1" step="0.01">
-                    <span id="initial-velocity-value">1.00x</span>
+                    <label for="initial-velocity">初速度（km/s）</label>
+                    <input type="range" id="initial-velocity" min="10" max="50" value="26.5" step="0.1">
+                    <span id="initial-velocity-value">26.5 km/s</span>
                 </div>
 
                 <div class="control-group">
@@ -126,6 +120,7 @@
                     <button id="start-btn" class="btn btn-primary">スタート</button>
                     <button id="stop-btn" class="btn btn-secondary" disabled>停止</button>
                     <button id="reset-btn" class="btn btn-secondary">リセット</button>
+                    <button id="clear-trail-btn" class="btn btn-secondary">軌道をクリア</button>
                 </div>
 
                 <div class="planet-presets">
