@@ -256,7 +256,7 @@ function drawForceVectors() {
     const softenedDistSq = distSq + state.softening * state.softening;
     const dist = Math.sqrt(softenedDistSq);
 
-    const forceScale = 0.05; // 表示用のスケール
+    const forceScale = 0.01; // 表示用のスケール
 
     // 火星（B）に働く力（太陽からの引力）
     const forceB = state.G * bodies.A.mass / softenedDistSq;
