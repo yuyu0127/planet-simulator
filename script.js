@@ -493,18 +493,12 @@ function calculateOrbitalElementsFromState(x, y, vx, vy, currentTime) {
     // 角運動量ベクトル（z成分のみ、2次元）
     const h = x * vy - y * vx;
 
-    // 角運動量が非常に小さい場合の特別処理
-    // 直線落下に近い軌道になるため、最小値を設定して数値的な安定性を確保
-    const MIN_H = Math.abs(mu) * 1e-8; // muに応じた最小角運動量
-    const effectiveH = Math.abs(h) < MIN_H ? (h >= 0 ? MIN_H : -MIN_H) : h;
-
     // 離心率 e = sqrt(1 + 2Eh²/μ²)
-    const e = Math.sqrt(Math.max(0, 1 + 2 * specificEnergy * effectiveH * effectiveH / (mu * mu)));
+    const e = Math.sqrt(Math.max(0, 1 + 2 * specificEnergy * h * h / (mu * mu)));
 
     // ラプラス・ルンゲ・レンツベクトル（離心率ベクトル）
-    // effectiveHを使用して計算の安定性を確保
-    const ex = (vy * effectiveH / mu) - (x / r);
-    const ey = -(vx * effectiveH / mu) - (y / r);
+    const ex = (vy * h / mu) - (x / r);
+    const ey = -(vx * h / mu) - (y / r);
 
     // 近点引数 ω（離心率ベクトルの角度）
     const omega = Math.atan2(ey, ex);
@@ -881,12 +875,8 @@ function calculateOrbitalElements() {
     // 角運動量ベクトルの大きさ（z成分のみ、2次元なので）
     const h = dx * vy - dy * vx;
 
-    // 角運動量が非常に小さい場合の特別処理
-    const MIN_H = Math.abs(mu) * 1e-8;
-    const effectiveH = Math.abs(h) < MIN_H ? (h >= 0 ? MIN_H : -MIN_H) : h;
-
     // 離心率 e = sqrt(1 + 2*E*h^2/mu^2)
-    const e = Math.sqrt(Math.max(0, 1 + 2 * specificEnergy * effectiveH * effectiveH / (mu * mu)));
+    const e = Math.sqrt(Math.max(0, 1 + 2 * specificEnergy * h * h / (mu * mu)));
 
     // 軌道タイプに応じた計算
     let b, T;
