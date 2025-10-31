@@ -769,9 +769,6 @@ function handleDragEnd() {
         // 新しい初期条件から軌道要素を計算（現在時刻を新しいt0とする）
         calculateOrbitalElementsFromState(body.x, body.y, body.vx, body.vy, state.elapsedTime);
 
-        // 軌道をクリア
-        body.trail = [];
-
         updateParameters();
 
         // シミュレーションを自動開始（初回でも再生）
