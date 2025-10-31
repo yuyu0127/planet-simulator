@@ -181,13 +181,14 @@ let bodies = initializeBodies(CONSTANTS.SUN_MASS, CONSTANTS.MARS_MASS);
 
 // 軌道要素（解析解用）
 let orbit = {
-    a: 0,          // 長半径 [m]
+    a: 0,          // 長半径 [m]（双曲線の場合は負）
     e: 0,          // 離心率
     omega: 0,      // 近点引数 [rad]
     M0: 0,         // 初期平均近点角 [rad]
-    n: 0,          // 平均運動 [rad/年]
+    n: 0,          // 平均運動 [rad/年]（双曲線の場合は負）
     mu: 0,         // 標準重力パラメータ GM [m³/年²]
-    t0: 0          // 軌道要素を計算した時刻 [年]
+    t0: 0,         // 軌道要素を計算した時刻 [年]
+    type: 'ellipse' // 軌道の種類 'ellipse', 'parabola', 'hyperbola'
 };
 
 // 爆発エフェクトの状態
@@ -481,25 +482,54 @@ function calculateOrbitalElementsFromState(x, y, vx, vy, currentTime) {
     const sinNu = (-x * Math.sin(omega) + y * Math.cos(omega)) / r;
     const nu = Math.atan2(sinNu, cosNu);
 
-    // 離心近点角 E
-    const E = 2 * Math.atan(Math.sqrt((1 - e) / (1 + e)) * Math.tan(nu / 2));
+    // 軌道の種類を判定
+    let orbitType;
+    if (e < 0.99) {
+        orbitType = 'ellipse';
+    } else if (e > 1.01) {
+        orbitType = 'hyperbola';
+    } else {
+        orbitType = 'parabola';
+    }
 
-    // 平均近点角 M
-    const M = E - e * Math.sin(E);
+    let M0, n;
 
-    // 平均運動 n = sqrt(μ/a³)
-    const n = Math.sqrt(mu / Math.abs(a * a * a));
+    if (orbitType === 'ellipse') {
+        // 楕円軌道
+        // 離心近点角 E
+        const E = 2 * Math.atan(Math.sqrt((1 - e) / (1 + e)) * Math.tan(nu / 2));
+        // 平均近点角 M
+        M0 = E - e * Math.sin(E);
+        // 平均運動 n = sqrt(μ/a³)
+        n = Math.sqrt(mu / (a * a * a));
+    } else if (orbitType === 'hyperbola') {
+        // 双曲線軌道
+        // 双曲離心近点角 H
+        const H = 2 * Math.atanh(Math.sqrt((e - 1) / (e + 1)) * Math.tan(nu / 2));
+        // 平均近点角 M
+        M0 = e * Math.sinh(H) - H;
+        // 平均運動 n = sqrt(μ/(-a)³)（aは負なので-aが正）
+        n = Math.sqrt(mu / (-a * -a * -a));
+    } else {
+        // 放物線軌道
+        // バーカー方程式を使用
+        const D = Math.tan(nu / 2);
+        M0 = D + D * D * D / 3;
+        // 放物線の場合、nは定義されないが計算のため仮の値
+        n = 0;
+    }
 
     orbit.a = a;
     orbit.e = e;
     orbit.omega = omega;
-    orbit.M0 = M;
+    orbit.M0 = M0;
     orbit.n = n;
     orbit.mu = mu;
     orbit.t0 = currentTime;
+    orbit.type = orbitType;
 }
 
-// ケプラーの方程式を解く（ニュートン法）
+// ケプラーの方程式を解く（ニュートン法）楕円軌道用
 // M = E - e*sin(E) から E を求める
 function solveKeplerEquation(M, e, tolerance = 1e-10, maxIterations = 100) {
     // 初期推定値
@@ -520,8 +550,61 @@ function solveKeplerEquation(M, e, tolerance = 1e-10, maxIterations = 100) {
     return E;
 }
 
+// 双曲線ケプラー方程式を解く（ニュートン法）
+// M = e*sinh(H) - H から H を求める
+function solveHyperbolicKeplerEquation(M, e, tolerance = 1e-10, maxIterations = 100) {
+    // 初期推定値
+    let H = M / (e - 1);
+
+    for (let i = 0; i < maxIterations; i++) {
+        const f = e * Math.sinh(H) - H - M;
+        const fPrime = e * Math.cosh(H) - 1;
+        const dH = f / fPrime;
+
+        H = H - dH;
+
+        if (Math.abs(dH) < tolerance) {
+            return H;
+        }
+    }
+
+    return H;
+}
+
+// 放物線軌道のバーカー方程式を解く（ニュートン法）
+// M = D + D³/3 から D を求める（D = tan(ν/2)）
+function solveBarkerEquation(M, tolerance = 1e-10, maxIterations = 100) {
+    // 初期推定値
+    let D = Math.cbrt(3 * M);
+
+    for (let i = 0; i < maxIterations; i++) {
+        const f = D + D * D * D / 3 - M;
+        const fPrime = 1 + D * D;
+        const dD = f / fPrime;
+
+        D = D - dD;
+
+        if (Math.abs(dD) < tolerance) {
+            return D;
+        }
+    }
+
+    return D;
+}
+
 // 時間から位置と速度を計算（解析解）
 function updatePositionFromTime(t) {
+    if (orbit.type === 'ellipse') {
+        updatePositionEllipse(t);
+    } else if (orbit.type === 'hyperbola') {
+        updatePositionHyperbola(t);
+    } else {
+        updatePositionParabola(t);
+    }
+}
+
+// 楕円軌道の位置更新
+function updatePositionEllipse(t) {
     // 平均近点角 M(t) = M0 + n*(t - t0)
     const M = orbit.M0 + orbit.n * (t - orbit.t0);
 
@@ -546,6 +629,74 @@ function updatePositionFromTime(t) {
     const vFactor = Math.sqrt(orbit.mu / orbit.a);
     const vxOrb = -vFactor * Math.sin(E) / (1 - orbit.e * Math.cos(E));
     const vyOrb = vFactor * Math.sqrt(1 - orbit.e * orbit.e) * Math.cos(E) / (1 - orbit.e * Math.cos(E));
+
+    // 慣性座標系への変換
+    bodies.B.vx = vxOrb * Math.cos(orbit.omega) - vyOrb * Math.sin(orbit.omega);
+    bodies.B.vy = vxOrb * Math.sin(orbit.omega) + vyOrb * Math.cos(orbit.omega);
+}
+
+// 双曲線軌道の位置更新
+function updatePositionHyperbola(t) {
+    // 平均近点角 M(t) = M0 + n*(t - t0)
+    const M = orbit.M0 + orbit.n * (t - orbit.t0);
+
+    // 双曲線ケプラー方程式を解いて双曲離心近点角 H を求める
+    const H = solveHyperbolicKeplerEquation(M, orbit.e);
+
+    // 真近点角 ν を計算
+    const nu = 2 * Math.atan(Math.sqrt((orbit.e + 1) / (orbit.e - 1)) * Math.tanh(H / 2));
+
+    // 軌道半径 r = a(1 - e*cosh(H))（aは負なので注意）
+    const r = orbit.a * (1 - orbit.e * Math.cosh(H));
+
+    // 軌道面内の位置（近点座標系）
+    const xOrb = r * Math.cos(nu);
+    const yOrb = r * Math.sin(nu);
+
+    // 慣性座標系への変換（近点引数 ω で回転）
+    bodies.B.x = xOrb * Math.cos(orbit.omega) - yOrb * Math.sin(orbit.omega);
+    bodies.B.y = xOrb * Math.sin(orbit.omega) + yOrb * Math.cos(orbit.omega);
+
+    // 速度の計算
+    const vFactor = Math.sqrt(orbit.mu / (-orbit.a));
+    const vxOrb = -vFactor * Math.sinh(H) / (1 - orbit.e * Math.cosh(H));
+    const vyOrb = vFactor * Math.sqrt(orbit.e * orbit.e - 1) * Math.cosh(H) / (1 - orbit.e * Math.cosh(H));
+
+    // 慣性座標系への変換
+    bodies.B.vx = vxOrb * Math.cos(orbit.omega) - vyOrb * Math.sin(orbit.omega);
+    bodies.B.vy = vxOrb * Math.sin(orbit.omega) + vyOrb * Math.cos(orbit.omega);
+}
+
+// 放物線軌道の位置更新
+function updatePositionParabola(t) {
+    // バーカー方程式用の平均運動を計算
+    const p = 2 * orbit.a; // 半直弦 p = 2a（放物線の場合）
+    const n_parabola = Math.sqrt(orbit.mu / (p * p * p)) * 2;
+
+    // 平均近点角 M(t) = M0 + n*(t - t0)
+    const M = orbit.M0 + n_parabola * (t - orbit.t0);
+
+    // バーカー方程式を解いて D = tan(ν/2) を求める
+    const D = solveBarkerEquation(M);
+
+    // 真近点角 ν を計算
+    const nu = 2 * Math.atan(D);
+
+    // 軌道半径 r = p / (1 + cos(ν))
+    const r = p / (1 + Math.cos(nu));
+
+    // 軌道面内の位置（近点座標系）
+    const xOrb = r * Math.cos(nu);
+    const yOrb = r * Math.sin(nu);
+
+    // 慣性座標系への変換（近点引数 ω で回転）
+    bodies.B.x = xOrb * Math.cos(orbit.omega) - yOrb * Math.sin(orbit.omega);
+    bodies.B.y = xOrb * Math.sin(orbit.omega) + yOrb * Math.cos(orbit.omega);
+
+    // 速度の計算
+    const vFactor = Math.sqrt(2 * orbit.mu / p);
+    const vxOrb = -vFactor * Math.sin(nu);
+    const vyOrb = vFactor * (1 + Math.cos(nu));
 
     // 慣性座標系への変換
     bodies.B.vx = vxOrb * Math.cos(orbit.omega) - vyOrb * Math.sin(orbit.omega);
@@ -698,13 +849,20 @@ function calculateOrbitalElements() {
     const h = dx * vy - dy * vx;
 
     // 離心率 e = sqrt(1 + 2*E*h^2/mu^2)
-    const e = Math.sqrt(1 + 2 * specificEnergy * h * h / (mu * mu));
+    const e = Math.sqrt(Math.max(0, 1 + 2 * specificEnergy * h * h / (mu * mu)));
 
-    // 短半径 b = a * sqrt(1 - e^2)
-    const b = a * Math.sqrt(Math.abs(1 - e * e));
-
-    // 周期 T = 2π * sqrt(a^3 / mu)
-    const T = 2 * Math.PI * Math.sqrt(Math.abs(a * a * a) / mu);
+    // 軌道タイプに応じた計算
+    let b, T;
+    if (orbit.type === 'ellipse') {
+        // 短半径 b = a * sqrt(1 - e^2)
+        b = a * Math.sqrt(Math.abs(1 - e * e));
+        // 周期 T = 2π * sqrt(a^3 / mu)
+        T = 2 * Math.PI * Math.sqrt(Math.abs(a * a * a) / mu);
+    } else {
+        // 双曲線・放物線の場合は短半径と周期は定義されない
+        b = null;
+        T = null;
+    }
 
     // 速度ベクトルと位置ベクトルのなす角 θ
     // cos(θ) = (r・v) / (|r||v|)
@@ -740,13 +898,28 @@ function updateParameters() {
     const rKm = orbital.r / 1000;
     elements.distance.textContent = formatJapanese(rKm, 4) + ' km';
 
-    // 軌道パラメータ
-    elements.period.textContent = orbital.T.toFixed(3) + ' 年';
-    const aKm = orbital.a / 1000;
-    const bKm = orbital.b / 1000;
-    elements.semiMajor.textContent = formatJapanese(aKm, 4) + ' km';
-    elements.semiMinor.textContent = formatJapanese(bKm, 4) + ' km';
-    elements.eccentricity.textContent = orbital.e.toFixed(4);
+    // 軌道パラメータ（軌道タイプに応じて表示）
+    if (orbit.type === 'ellipse') {
+        elements.period.textContent = orbital.T.toFixed(3) + ' 年';
+        const aKm = orbital.a / 1000;
+        const bKm = orbital.b / 1000;
+        elements.semiMajor.textContent = formatJapanese(aKm, 4) + ' km';
+        elements.semiMinor.textContent = formatJapanese(bKm, 4) + ' km';
+        elements.eccentricity.textContent = orbital.e.toFixed(4) + ' (楕円)';
+    } else if (orbit.type === 'hyperbola') {
+        elements.period.textContent = '∞ (脱出軌道)';
+        const aKm = Math.abs(orbital.a) / 1000;
+        elements.semiMajor.textContent = formatJapanese(aKm, 4) + ' km (双曲)';
+        elements.semiMinor.textContent = '—';
+        elements.eccentricity.textContent = orbital.e.toFixed(4) + ' (双曲線)';
+    } else {
+        elements.period.textContent = '∞ (脱出軌道)';
+        const pKm = Math.abs(orbital.a) / 1000;
+        elements.semiMajor.textContent = formatJapanese(pKm, 4) + ' km (放物)';
+        elements.semiMinor.textContent = '—';
+        elements.eccentricity.textContent = orbital.e.toFixed(4) + ' (放物線)';
+    }
+
     elements.angle.textContent = orbital.theta.toFixed(2) + '°';
     elements.sinAngle.textContent = orbital.sinTheta.toFixed(4);
 }
